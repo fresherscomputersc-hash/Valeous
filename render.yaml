@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: valueous
+    runtime: docker
+    plan: starter
+    region: oregon
+    healthCheckPath: /api/health
+    disk:
+      name: valueous-storage
+      mountPath: /app/storage
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_APP_NAME
+        value: VALUEOUS
+      - key: NEXT_PUBLIC_PILOT_LABEL
+        value: Customers x Creators x Businesses
+      - key: NEXT_PUBLIC_DEFAULT_TIMEZONE
+        value: Asia/Kolkata
+      - key: NEXT_PUBLIC_DEMO_MODE
+        value: "true"
+      - key: DATABASE_FILE
+        value: file:/app/storage/d2c_mvp.sqlite
+      - key: STORAGE_PROVIDER
+        value: local
+      - key: EMAIL_PROVIDER
+        value: local
+      - key: ALLOW_DEV_SEED
+        value: "false"
+      - key: COOKIE_PARTITIONED_PREVIEW
+        value: "false"
+      - key: CSP_FRAME_ANCESTORS
+        value: "'none'"
+      - key: APP_BASE_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: CLAIM_CODE_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true

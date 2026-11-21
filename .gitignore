@@ -1,0 +1,29 @@
+# Dependencies & Build Outputs
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.sudo_as_admin_successful
+
+# Environment Secrets (never commit real secrets)
+.env
+.env.local
+.env.production.local
+.env.development.local
+
+# Test & Playwright Artifacts
+test-results/
+playwright-report/
+.playwright-cli/
+
+# Ephemeral Runtime Storage (SQLite databases & dev outboxes)
+storage/*.sqlite*
+storage/*.log
+storage/dev-*
+storage/uploads/*
+!storage/uploads/.gitkeep
+storage/backups/*.sql
+storage/backups/*
