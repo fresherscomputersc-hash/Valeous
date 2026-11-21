@@ -19,9 +19,9 @@ import {
 import { hashPassword } from '../src/server/lib/crypto';
 
 async function main() {
-  if (process.env.NODE_ENV === 'production' || process.env.ALLOW_DEV_SEED !== 'true') {
+  if (process.env.ALLOW_DEV_SEED !== 'true') {
     console.error(
-      'Refusing to run seed script: requires NODE_ENV !== "production" and ALLOW_DEV_SEED="true".'
+      'Refusing to run seed script: requires ALLOW_DEV_SEED="true".'
     );
     process.exit(1);
   }

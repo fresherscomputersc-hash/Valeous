@@ -2,13 +2,9 @@ services:
   - type: web
     name: valueous
     runtime: docker
-    plan: starter
+    plan: free
     region: oregon
     healthCheckPath: /api/health
-    disk:
-      name: valueous-storage
-      mountPath: /app/storage
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
@@ -27,7 +23,7 @@ services:
       - key: EMAIL_PROVIDER
         value: local
       - key: ALLOW_DEV_SEED
-        value: "false"
+        value: "true"
       - key: COOKIE_PARTITIONED_PREVIEW
         value: "false"
       - key: CSP_FRAME_ANCESTORS

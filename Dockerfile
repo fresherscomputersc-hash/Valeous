@@ -54,7 +54,6 @@ RUN mkdir -p /app/storage/uploads && chown -R node:node /app/storage
 USER node
 
 EXPOSE 3000
-VOLUME ["/app/storage"]
 
-# Apply migrations, then start the production server.
-CMD ["sh", "-c", "npm run db:migrate && npm run start"]
+# Apply migrations, seed demo data if enabled, then start the production server.
+CMD ["sh", "-c", "npm run db:migrate && if [ \"$ALLOW_DEV_SEED\" = \"true\" ]; then npm run db:seed; fi && npm run start"]
