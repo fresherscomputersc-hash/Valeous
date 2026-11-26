@@ -1,6 +1,41 @@
 # 🚀 Quick Start: Building VALUEOUS Platform
 
-This repo is the **PromoBridge** codebase — a working Business ↔ Influencer marketplace that we're evolving into **VALUEOUS** (Customer, Creator, Business) per the PPT guide.
+This repository is evolving from the **PromoBridge** MVP into **VALUEOUS** (`VLS-TBP-2026-001`) — a three-sided marketplace connecting **Customers**, **Creators**, and **Businesses** (plus internal **Admins**).
+
+---
+
+## ⚙️ Local Development Setup (3-Step Startup)
+
+### Prerequisites
+- **Node.js 22 LTS** (`node -v`)
+- **Docker Desktop** (for local PostgreSQL 17 + PostGIS and Redis 7)
+- **Git**
+
+### Initial Environment Setup
+```bash
+cp .env.example .env
+npm install
+```
+> **Security:** Never commit `.env` or real secrets. `.env` is ignored by `.gitignore`.
+
+### 3-Step Startup Commands
+```bash
+docker compose up -d
+npm run db:migrate && npm run db:seed
+npm run dev
+```
+
+1. `docker compose up -d` — Starts **PostgreSQL 17 (PostGIS)** on port `5432` and **Redis 7** on port `6379` with persistent named volumes and healthchecks.
+2. `npm run db:migrate && npm run db:seed` — Applies database migrations and seeds demo accounts/data (requires `ALLOW_DEV_SEED="true"` in `.env`).
+3. `npm run dev` — Starts the Next.js development server at `http://localhost:3000`.
+
+### Verification Commands (Run Before Opening a PR)
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
 
 ---
 

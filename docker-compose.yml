@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgis/postgis:17-3.5-alpine
+    container_name: valueous-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-valueous}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-valueous_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-valueous}
+      TZ: UTC
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/20-extensions.sql:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-valueous} -d ${POSTGRES_DB:-valueous} && psql -U ${POSTGRES_USER:-valueous} -d ${POSTGRES_DB:-valueous} -tAc \"SELECT 1 FROM pg_extension WHERE extname = 'postgis';\" | grep -q 1"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  redis:
+    image: redis:7-alpine
+    container_name: valueous-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  postgres_data:
+    name: valueous_postgres_data
+  redis_data:
+    name: valueous_redis_data
