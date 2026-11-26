@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, Lint, Test, Build & Audit
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+      APP_URL: http://localhost:3000
+      APP_BASE_URL: http://localhost:3000
+      ALLOWED_ORIGINS: http://localhost:3000
+      PRODUCT_COMMERCE_ENABLED: "false"
+      PAYMENT_PROVIDER: mock
+      DATABASE_URL: postgresql://valueous:valueous_dev_password@localhost:5432/valueous
+      REDIS_URL: redis://localhost:6379
+      DATABASE_FILE: file:./storage/ci-test.sqlite
+      JWT_SECRET: ci-test-jwt-secret-must-be-at-least-32-characters-long
+      SESSION_SECRET: ci-test-session-secret-must-be-at-least-32-characters-long
+      CLAIM_CODE_SECRET: ci-test-claim-code-secret-must-be-at-least-32-characters
+      WEBHOOK_HMAC_SECRET: ci-test-webhook-hmac-secret-must-be-at-least-32-chars
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build application
+        run: npm run build
+
+      - name: Security audit (high+)
+        run: npm audit --audit-level=high

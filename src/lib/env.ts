@@ -8,10 +8,20 @@ const serverEnvSchema = z.object({
     .default('Business & Influencer Promo-Code Marketplace'),
   NEXT_PUBLIC_DEFAULT_TIMEZONE: z.string().min(1).default('Asia/Kolkata'),
   NEXT_PUBLIC_DEMO_MODE: z.string().optional().default('true'),
+  APP_URL: z.string().url().default('http://localhost:3000'),
   APP_BASE_URL: z.string().url().default('http://localhost:3000'),
   ALLOWED_ORIGINS: z.string().default('http://localhost:3000'),
-  DATABASE_FILE: z.string().min(1, 'DATABASE_FILE must point to a SQLite database file'),
+  DATABASE_URL: z
+    .string()
+    .min(1, 'DATABASE_URL must point to a PostgreSQL 17 database')
+    .default('postgresql://valueous:valueous_dev_password@localhost:5432/valueous'),
+  REDIS_URL: z.string().default('redis://localhost:6379'),
+  PRODUCT_COMMERCE_ENABLED: z.string().optional().default('false'),
+  PAYMENT_PROVIDER: z.enum(['mock', 'razorpay', 'cashfree']).default('mock'),
+  DATABASE_FILE: z.string().optional(),
   TEST_DATABASE_FILE: z.string().optional(),
+  JWT_SECRET: z.string().optional().default('dev-jwt-secret-placeholder-32-chars-min'),
+  WEBHOOK_HMAC_SECRET: z.string().optional().default('dev-webhook-hmac-secret-32-chars-min'),
   SESSION_SECRET: z
     .string()
     .min(32, 'SESSION_SECRET must be at least 32 characters for cryptographic safety'),

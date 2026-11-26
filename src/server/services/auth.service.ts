@@ -3,16 +3,23 @@ import { AppError } from '@/lib/errors';
 import { getEnv } from '@/lib/env';
 import { purgeExpiredRateLimitHits } from '@/lib/rate-limit';
 import { getDb } from '@/server/db';
+import { randomInt } from 'node:crypto';
 import {
   businessProfiles,
   customerProfiles,
   emailVerificationTokens,
   influencerProfiles,
+  otpChallenges,
   passwordResetTokens,
   promoSales,
   sessions,
   users,
 } from '@/server/db/schema';
+import {
+  buildOtpAuthUri,
+  generateBase32Secret,
+  verifyTotpCode,
+} from '@/server/auth/totp';
 import {
   generateOpaqueToken,
   hashPassword,
@@ -30,8 +37,11 @@ import {
   changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
+  otpRequestSchema,
+  otpVerifySchema,
   registerSchema,
   resetPasswordSchema,
+  totpVerifySchema,
   verifyEmailTokenSchema,
 } from '@/server/validation/schemas';
 
@@ -233,9 +243,54 @@ export async function loginUser(
     throw new AppError('INVALID_CREDENTIALS', 'Invalid email or password.', 401);
   }
 
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+  if (user.lockedUntil && new Date(user.lockedUntil).getTime() > nowMs) {
+    throw new AppError(
+      'ACCOUNT_LOCKED',
+      'Too many failed sign-in attempts. Your account is temporarily locked for 15 minutes.',
+      423
+    );
+  }
+
   const ok = await verifyPassword(user.passwordHash, parsed.data.password);
   if (!ok) {
+    const nextAttempts = (user.failedLoginAttempts ?? 0) + 1;
+    const shouldLock = nextAttempts >= 5;
+    const lockedUntil = shouldLock ? new Date(nowMs + 15 * 60 * 1000).toISOString() : null;
+
+    await db
+      .update(users)
+      .set({
+        failedLoginAttempts: shouldLock ? 0 : nextAttempts,
+        lockedUntil,
+        updatedAt: nowIso,
+      })
+      .where(eq(users.id, user.id));
+
+    if (shouldLock) {
+      await recordAuditLog({
+        actorUserId: user.id,
+        action: 'AUTH_ACCOUNT_LOCKED',
+        targetType: 'USER',
+        targetId: user.id,
+        metadata: { ipAddress: meta?.ipAddress ?? null, attempts: nextAttempts },
+      });
+      throw new AppError(
+        'ACCOUNT_LOCKED',
+        'Too many failed sign-in attempts. Your account is temporarily locked for 15 minutes.',
+        423
+      );
+    }
+
     throw new AppError('INVALID_CREDENTIALS', 'Invalid email or password.', 401);
+  }
+
+  if ((user.failedLoginAttempts ?? 0) > 0 || user.lockedUntil) {
+    await db
+      .update(users)
+      .set({ failedLoginAttempts: 0, lockedUntil: null, updatedAt: nowIso })
+      .where(eq(users.id, user.id));
   }
 
   if (user.status !== 'ACTIVE') {
@@ -607,7 +662,7 @@ export async function runHousekeepingTasks() {
         await tx
           .update(influencerProfiles)
           .set({
-            pendingClearancePaise: sql`max(0, ${influencerProfiles.pendingClearancePaise} - ${sale.commissionAmountPaise})`,
+            pendingClearancePaise: sql`GREATEST(0, ${influencerProfiles.pendingClearancePaise} - ${sale.commissionAmountPaise})`,
             availableBalancePaise: sql`${influencerProfiles.availableBalancePaise} + ${sale.commissionAmountPaise}`,
             updatedAt: now,
           })
@@ -624,4 +679,192 @@ export async function runHousekeepingTasks() {
     clearedSalesCount,
     ranAt: now,
   };
+}
+
+export async function requestPhoneOtp(rawInput: unknown, userId?: string | null) {
+  const parsed = otpRequestSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    throw new AppError(
+      'VALIDATION_ERROR',
+      parsed.error.issues[0]?.message || 'Invalid phone number.',
+      400
+    );
+  }
+
+  const phone = parsed.data.phone;
+  const code = String(randomInt(100_000, 1_000_000));
+  const codeHash = sha256Hex(`${phone}:${code}`);
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+  const db = getDb();
+  const [challenge] = await db
+    .insert(otpChallenges)
+    .values({
+      userId: userId ?? null,
+      phone,
+      codeHash,
+      attempts: 0,
+      maxAttempts: 5,
+      expiresAt,
+    })
+    .returning();
+
+  await recordAuditLog({
+    actorUserId: userId ?? null,
+    action: 'AUTH_OTP_REQUESTED',
+    targetType: 'OTP_CHALLENGE',
+    targetId: challenge!.id,
+    metadata: { phoneLast4: phone.slice(-4) },
+  });
+
+  return {
+    challengeId: challenge!.id,
+    phone,
+    expiresAt,
+    // Exposed only in non-production for local/test verification
+    ...(getEnv().NODE_ENV !== 'production' ? { devCode: code } : {}),
+  };
+}
+
+export async function verifyPhoneOtp(rawInput: unknown) {
+  const parsed = otpVerifySchema.safeParse(rawInput);
+  if (!parsed.success) {
+    throw new AppError(
+      'VALIDATION_ERROR',
+      parsed.error.issues[0]?.message || 'Invalid OTP payload.',
+      400
+    );
+  }
+
+  const { phone, code } = parsed.data;
+  const db = getDb();
+  const nowIso = new Date().toISOString();
+
+  const [challenge] = await db
+    .select()
+    .from(otpChallenges)
+    .where(and(eq(otpChallenges.phone, phone), isNull(otpChallenges.verifiedAt)))
+    .orderBy(desc(otpChallenges.createdAt))
+    .limit(1);
+
+  if (!challenge) {
+    throw new AppError('INVALID_OTP', 'No active OTP challenge found for this phone.', 400);
+  }
+
+  if (new Date(challenge.expiresAt).getTime() <= Date.now()) {
+    throw new AppError('OTP_EXPIRED', 'This OTP has expired. Please request a new code.', 400);
+  }
+
+  if (challenge.attempts >= challenge.maxAttempts) {
+    throw new AppError(
+      'OTP_MAX_ATTEMPTS',
+      'Maximum OTP verification attempts exceeded. Request a new code.',
+      429
+    );
+  }
+
+  const expectedHash = sha256Hex(`${phone}:${code}`);
+  if (challenge.codeHash !== expectedHash) {
+    const nextAttempts = challenge.attempts + 1;
+    await db
+      .update(otpChallenges)
+      .set({ attempts: nextAttempts })
+      .where(eq(otpChallenges.id, challenge.id));
+
+    throw new AppError(
+      'INVALID_OTP',
+      `Invalid OTP code. ${Math.max(0, challenge.maxAttempts - nextAttempts)} attempts remaining.`,
+      400
+    );
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(otpChallenges)
+      .set({ verifiedAt: nowIso })
+      .where(eq(otpChallenges.id, challenge.id));
+
+    if (challenge.userId) {
+      await tx
+        .update(users)
+        .set({ phone, phoneVerifiedAt: nowIso, updatedAt: nowIso })
+        .where(eq(users.id, challenge.userId));
+    }
+  });
+
+  await recordAuditLog({
+    actorUserId: challenge.userId ?? null,
+    action: 'AUTH_OTP_VERIFIED',
+    targetType: 'OTP_CHALLENGE',
+    targetId: challenge.id,
+    metadata: { phoneLast4: phone.slice(-4) },
+  });
+
+  return { verified: true, phone, verifiedAt: nowIso };
+}
+
+export async function enrollTotpMfa(userId: string) {
+  const db = getDb();
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!user) {
+    throw new AppError('NOT_FOUND', 'User not found.', 404);
+  }
+
+  const secret = generateBase32Secret(20);
+  await db
+    .update(users)
+    .set({
+      totpSecretEncrypted: secret,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(users.id, userId));
+
+  await recordAuditLog({
+    actorUserId: userId,
+    action: 'AUTH_MFA_ENROLL_STARTED',
+    targetType: 'USER',
+    targetId: userId,
+  });
+
+  return {
+    secret,
+    otpauthUri: buildOtpAuthUri({ accountLabel: user.email, secret }),
+  };
+}
+
+export async function verifyTotpMfa(userId: string, rawInput: unknown) {
+  const parsed = totpVerifySchema.safeParse(rawInput);
+  if (!parsed.success) {
+    throw new AppError(
+      'VALIDATION_ERROR',
+      parsed.error.issues[0]?.message || 'Invalid authenticator code.',
+      400
+    );
+  }
+
+  const db = getDb();
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!user || !user.totpSecretEncrypted) {
+    throw new AppError('MFA_NOT_ENROLLED', 'TOTP MFA has not been enrolled for this account.', 400);
+  }
+
+  const valid = verifyTotpCode(user.totpSecretEncrypted, parsed.data.code);
+  if (!valid) {
+    throw new AppError('INVALID_MFA_CODE', 'Invalid authenticator code.', 401);
+  }
+
+  const nowIso = new Date().toISOString();
+  await db
+    .update(users)
+    .set({ mfaEnabled: true, updatedAt: nowIso })
+    .where(eq(users.id, userId));
+
+  await recordAuditLog({
+    actorUserId: userId,
+    action: 'AUTH_MFA_VERIFIED',
+    targetType: 'USER',
+    targetId: userId,
+  });
+
+  return { mfaEnabled: true, verifiedAt: nowIso };
 }

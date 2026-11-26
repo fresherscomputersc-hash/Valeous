@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { redirect } from 'next/navigation';
+import { and, eq, isNull, or } from 'drizzle-orm';
 import { AppError } from '@/lib/errors';
+import { getDb } from '@/server/db';
+import { memberships, type OrgRole } from '@/server/db/schema';
 import {
   getCurrentActor,
   resolveActorFromRequest,
@@ -88,5 +91,45 @@ export async function requireAdmin(request?: NextRequest): Promise<Authenticated
     }
     throw new AppError('FORBIDDEN', 'Administrator permissions are required.', 403);
   }
+  return actor;
+}
+
+export async function requireOrgRole(
+  allowedRoles: readonly OrgRole[],
+  organisationId: string,
+  branchId?: string | null,
+  request?: NextRequest
+): Promise<AuthenticatedActor> {
+  const actor = await requireActor(request);
+  if (actor.user.role === 'ADMIN') {
+    return actor;
+  }
+
+  const db = getDb();
+  const branchCondition = branchId
+    ? or(eq(memberships.branchId, branchId), isNull(memberships.branchId))
+    : isNull(memberships.branchId);
+
+  const rows = await db
+    .select()
+    .from(memberships)
+    .where(
+      and(
+        eq(memberships.userId, actor.user.id),
+        eq(memberships.organisationId, organisationId),
+        eq(memberships.status, 'ACTIVE'),
+        branchCondition
+      )
+    );
+
+  const authorized = rows.some((row) => allowedRoles.includes(row.orgRole as OrgRole));
+  if (!authorized) {
+    throw new AppError(
+      'FORBIDDEN',
+      'You do not have the required organisation or branch permissions.',
+      403
+    );
+  }
+
   return actor;
 }

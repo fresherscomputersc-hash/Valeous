@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: valueous-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-valueous}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-valueous_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-valueous}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-valueous} -d ${POSTGRES_DB:-valueous}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: valueous-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  pg_data:
+  redis_data:

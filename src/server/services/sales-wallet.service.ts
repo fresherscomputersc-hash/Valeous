@@ -571,7 +571,7 @@ export async function resolvePromoSaleByBusiness(params: {
       await tx
         .update(influencerProfiles)
         .set({
-          pendingClearancePaise: sql`max(0, ${influencerProfiles.pendingClearancePaise} - ${sale.commissionAmountPaise})`,
+          pendingClearancePaise: sql`GREATEST(0, ${influencerProfiles.pendingClearancePaise} - ${sale.commissionAmountPaise})`,
           availableBalancePaise: sql`${influencerProfiles.availableBalancePaise} + ${sale.commissionAmountPaise}`,
           updatedAt: now,
         })
@@ -627,10 +627,10 @@ export async function resolvePromoSaleByBusiness(params: {
     await tx
       .update(enrollments)
       .set({
-        totalSalesCount: sql`max(0, ${enrollments.totalSalesCount} - 1)`,
-        totalUnitsSold: sql`max(0, ${enrollments.totalUnitsSold} - ${sale.quantity})`,
-        totalGrossSalesPaise: sql`max(0, ${enrollments.totalGrossSalesPaise} - ${sale.grossAmountPaise})`,
-        totalCommissionPaise: sql`max(0, ${enrollments.totalCommissionPaise} - ${sale.commissionAmountPaise})`,
+        totalSalesCount: sql`GREATEST(0, ${enrollments.totalSalesCount} - 1)`,
+        totalUnitsSold: sql`GREATEST(0, ${enrollments.totalUnitsSold} - ${sale.quantity})`,
+        totalGrossSalesPaise: sql`GREATEST(0, ${enrollments.totalGrossSalesPaise} - ${sale.grossAmountPaise})`,
+        totalCommissionPaise: sql`GREATEST(0, ${enrollments.totalCommissionPaise} - ${sale.commissionAmountPaise})`,
         updatedAt: now,
       })
       .where(eq(enrollments.id, sale.enrollmentId));
@@ -639,8 +639,8 @@ export async function resolvePromoSaleByBusiness(params: {
       await tx
         .update(influencerProfiles)
         .set({
-          totalEarnedPaise: sql`max(0, ${influencerProfiles.totalEarnedPaise} - ${sale.commissionAmountPaise})`,
-          pendingClearancePaise: sql`max(0, ${influencerProfiles.pendingClearancePaise} - ${sale.commissionAmountPaise})`,
+          totalEarnedPaise: sql`GREATEST(0, ${influencerProfiles.totalEarnedPaise} - ${sale.commissionAmountPaise})`,
+          pendingClearancePaise: sql`GREATEST(0, ${influencerProfiles.pendingClearancePaise} - ${sale.commissionAmountPaise})`,
           updatedAt: now,
         })
         .where(eq(influencerProfiles.id, sale.influencerId));
@@ -648,8 +648,8 @@ export async function resolvePromoSaleByBusiness(params: {
       await tx
         .update(influencerProfiles)
         .set({
-          totalEarnedPaise: sql`max(0, ${influencerProfiles.totalEarnedPaise} - ${sale.commissionAmountPaise})`,
-          availableBalancePaise: sql`max(0, ${influencerProfiles.availableBalancePaise} - ${sale.commissionAmountPaise})`,
+          totalEarnedPaise: sql`GREATEST(0, ${influencerProfiles.totalEarnedPaise} - ${sale.commissionAmountPaise})`,
+          availableBalancePaise: sql`GREATEST(0, ${influencerProfiles.availableBalancePaise} - ${sale.commissionAmountPaise})`,
           updatedAt: now,
         })
         .where(eq(influencerProfiles.id, sale.influencerId));
@@ -672,7 +672,7 @@ export async function resolvePromoSaleByBusiness(params: {
         .update(businessProfiles)
         .set({
           walletBalancePaise: nextBal,
-          totalSpentPaise: sql`max(0, ${businessProfiles.totalSpentPaise} - ${refundCredit})`,
+          totalSpentPaise: sql`GREATEST(0, ${businessProfiles.totalSpentPaise} - ${refundCredit})`,
           updatedAt: now,
         })
         .where(eq(businessProfiles.id, params.businessId));

@@ -5,7 +5,10 @@ import {
   listMarketplaceProducts,
   computeEstimatedCommissionPerUnitPaise,
 } from '@/server/services/marketplace.service';
-import { getCustomerProfileDetails } from '@/server/services/customer.service';
+import {
+  getCustomerProfileDetails,
+  listPassportItems,
+} from '@/server/services/customer.service';
 
 interface CustomerOfferMatch {
   id: string;
@@ -79,14 +82,7 @@ export async function matchOffersForCustomer(
   filters: MatchFilters = {}
 ): Promise<CustomerOfferMatch[]> {
   const profile = await getCustomerProfileDetails(customerId);
-  let preferences: CustomerPreferences = {};
-  try {
-    preferences = JSON.parse(profile.preferences || '{}') as CustomerPreferences;
-  } catch {
-    preferences = {};
-  }
-
-  const interests = tokenizeInterests(preferences);
+  const interests = (profile.interests ?? []).map(normalize).filter(Boolean);
   const customerCity = normalize(profile.city || '');
 
   const products = await listMarketplaceProducts({
@@ -208,24 +204,14 @@ export interface HydratedPassport {
 export async function getHydratedPassport(
   customerId: string
 ): Promise<HydratedPassport> {
-  const profile = await getCustomerProfileDetails(customerId);
-  let preferences: CustomerPreferences = {};
-  try {
-    preferences = JSON.parse(profile.preferences || '{}') as CustomerPreferences;
-  } catch {
-    preferences = {};
-  }
-
-  const savedIds: string[] = Array.isArray(preferences.savedOffers)
-    ? preferences.savedOffers.filter((id): id is string => typeof id === 'string')
-    : [];
-  const requests: unknown[] = Array.isArray(preferences.requests)
-    ? preferences.requests
-    : [];
+  const passport = await listPassportItems(customerId);
+  const savedIds = passport.savedOffers;
+  const requests = passport.requests;
+  const normalizedInterests = passport.interests.map(normalize).filter(Boolean);
 
   if (savedIds.length === 0) {
     return {
-      interests: tokenizeInterests(preferences),
+      interests: normalizedInterests,
       requests,
       savedOffers: [],
     };
@@ -262,7 +248,7 @@ export async function getHydratedPassport(
   }
 
   return {
-    interests: tokenizeInterests(preferences),
+    interests: normalizedInterests,
     requests,
     savedOffers,
   };

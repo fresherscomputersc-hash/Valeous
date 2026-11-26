@@ -5,7 +5,7 @@ import { getDb } from '@/server/db';
 export async function GET() {
   try {
     const db = getDb();
-    await db.run(sql`SELECT 1`);
+    await db.execute(sql`SELECT 1`);
     return NextResponse.json({
       status: 'ok',
       database: 'connected',

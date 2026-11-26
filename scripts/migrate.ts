@@ -1,27 +1,27 @@
 import 'dotenv/config';
 import path from 'node:path';
-import { migrate } from 'drizzle-orm/libsql/migrator';
-import { getDb } from '@/server/db';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import { closeDbPool, getDb } from '@/server/db';
 
-async function runMigrations(databaseFile: string): Promise<void> {
+async function runMigrations(): Promise<void> {
   const db = getDb();
   try {
-    migrate(db, {
+    await migrate(db, {
       migrationsFolder: path.resolve(process.cwd(), 'drizzle/migrations'),
     });
-    console.log('SQLite (libsql) migrations applied cleanly.');
+    console.log('PostgreSQL 17 migrations applied cleanly.');
   } finally {
-    // libsql client is managed globally
+    await closeDbPool();
   }
 }
 
 async function main() {
-  const file = process.env.DATABASE_FILE;
-  if (!file) {
-    throw new Error('DATABASE_FILE is required to run migrations');
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error('DATABASE_URL is required to run migrations');
   }
-  console.log(`Applying libsql SQLite migrations to ${file}...`);
-  await runMigrations(file);
+  console.log('Applying PostgreSQL 17 migrations...');
+  await runMigrations();
 }
 
 if (require.main === module || process.argv[1]?.endsWith('migrate.ts')) {
