@@ -100,7 +100,7 @@ export default async function ProductDetailPage({
                 <StatusBadge status={product.status} />
                 <span className="inline-flex items-center gap-1 text-xs text-ink-500">
                   <Users className="h-3.5 w-3.5" />
-                  <span>{product.activeInfluencersCount} active influencers</span>
+                  <span>{product.activeInfluencersCount} active creators</span>
                 </span>
               </div>
 
@@ -145,7 +145,7 @@ export default async function ProductDetailPage({
               How Much Can You Earn Promoting This Product?
             </h2>
             <p className="mt-1 text-xs text-ink-600">
-              Estimated influencer commission based on number of sales using your promo code:
+              Estimated creator commission based on number of sales using your promo code:
             </p>
             <div className="mt-4 grid grid-cols-3 gap-3 text-center">
               {[10, 50, 200].map((salesCount) => (

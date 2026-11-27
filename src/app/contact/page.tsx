@@ -21,13 +21,13 @@ export default function ContactPage() {
         <div className="surface-card space-y-1.5 p-5 text-xs">
           <Mail className="h-5 w-5 text-brand-600" />
           <p className="font-extrabold text-ink-950">Creator &amp; Payout Desk</p>
-          <p className="text-ink-600">payouts@promobridge.local</p>
+          <p className="text-ink-600">payouts@valueous.local</p>
         </div>
 
         <div className="surface-card space-y-1.5 p-5 text-xs">
           <ShieldCheck className="h-5 w-5 text-sky-600" />
           <p className="font-extrabold text-ink-950">Brand Webhooks &amp; Billing</p>
-          <p className="text-ink-600">brands@promobridge.local</p>
+          <p className="text-ink-600">brands@valueous.local</p>
         </div>
 
         <div className="surface-card space-y-1.5 p-5 text-xs">

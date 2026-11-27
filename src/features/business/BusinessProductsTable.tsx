@@ -65,7 +65,7 @@ export function BusinessProductsTable({ items }: { items: BusinessProductRow[] }
           <tr>
             <th className="px-4 py-3">Product</th>
             <th className="px-4 py-3">Retail / Commission</th>
-            <th className="px-4 py-3">Influencers</th>
+            <th className="px-4 py-3">Creators</th>
             <th className="px-4 py-3">Sales &amp; Payouts</th>
             <th className="px-4 py-3">Status</th>
             <th className="px-4 py-3 text-right">Actions</th>

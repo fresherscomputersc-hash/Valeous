@@ -129,11 +129,11 @@ export function EnrollProductWidget({
       <div className="surface-card space-y-3 border-sky-200 bg-sky-50/50 p-6">
         <p className="text-sm font-extrabold text-ink-950">You own this product listing</p>
         <p className="text-xs text-ink-600">
-          Review influencer enrollment applications or log promo-code sales from your Business Hub.
+          Review creator enrollment applications or log promo-code sales from your Business Hub.
         </p>
         <div className="flex flex-wrap gap-2 pt-1">
           <Link href="/business/enrollments" className="btn-primary py-2 text-xs">
-            Review Influencer Requests
+            Review Creator Requests
           </Link>
           <Link href="/business/sales" className="btn-secondary py-2 text-xs">
             Log Promo Sale
@@ -150,7 +150,7 @@ export function EnrollProductWidget({
           Want to promote this product &amp; earn?
         </h2>
         <p className="text-xs leading-relaxed text-ink-600">
-          Sign in with an Influencer account to enroll, get your personal promo code + tracked `/r/CODE` link, and earn commission on every sale.
+          Sign in with a Creator account to enroll, get your personal promo code + tracked `/r/CODE` link, and earn commission on every sale.
         </p>
         <div className="flex flex-wrap gap-3 pt-1">
           <Link href="/login" className="btn-primary py-2.5 text-xs">
@@ -160,7 +160,7 @@ export function EnrollProductWidget({
             href="/register?role=INFLUENCER"
             className="btn-secondary py-2.5 text-xs"
           >
-            Create Influencer Account
+            Create Creator Account
           </Link>
         </div>
       </div>
@@ -170,7 +170,7 @@ export function EnrollProductWidget({
   if (resolvedRole !== 'INFLUENCER') {
     return (
       <div className="surface-card p-6 text-xs text-ink-600">
-        Signed in as <strong>{resolvedRole}</strong>. Switch to an Influencer account to enroll in product campaigns and receive promo codes.
+        Signed in as <strong>{resolvedRole}</strong>. Switch to a Creator account to enroll in product campaigns and receive promo codes.
       </div>
     );
   }

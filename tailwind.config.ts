@@ -10,6 +10,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        primary: '#2B68C4',
         brand: {
           50: '#e8f0fc',
           100: '#d5e3fb',
@@ -22,6 +23,7 @@ const config: Config = {
           800: '#1f4d8f',
           900: '#1b3e78',
           950: '#112746',
+          DEFAULT: '#2B68C4',
         },
         creator: {
           50: '#edf6eb',
@@ -35,6 +37,7 @@ const config: Config = {
           800: '#335334',
           900: '#2a402b',
           950: '#18221a',
+          DEFAULT: '#84BE82',
         },
         business: {
           50: '#f4f7fb',
@@ -48,6 +51,7 @@ const config: Config = {
           800: '#0d1a31',
           900: '#0a141f',
           950: '#050a12',
+          DEFAULT: '#183056',
         },
         surface: {
           customer: '#E8F0FC',

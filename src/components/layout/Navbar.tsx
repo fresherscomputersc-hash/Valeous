@@ -80,7 +80,7 @@ export function Navbar({ demoMode }: { demoMode?: boolean }) {
     <header className="sticky top-0 z-40 border-b border-ink-200 bg-white/95 backdrop-blur">
       {demoMode ? (
         <div className="bg-ink-950 px-4 py-1.5 text-center text-xs text-ink-200">
-          <span className="font-bold text-brand-300">Live Interactive Platform</span> — Businesses post products, Influencers share tracked promo codes, and Customers discover curated value.
+          <span className="font-bold text-brand-300">Live Interactive Platform</span> — Businesses post products, Creators share tracked promo codes, and Customers discover curated value.
         </div>
       ) : null}
 
@@ -304,7 +304,7 @@ export function Navbar({ demoMode }: { demoMode?: boolean }) {
                 onClick={() => setMobileOpen(false)}
                 className="block rounded-lg px-3 py-2 text-sm font-semibold text-ink-800 hover:bg-ink-100"
               >
-                Influencer Studio
+                Creator Studio
               </Link>
               <Link
                 href="/influencer/campaigns"
@@ -377,7 +377,7 @@ export function Navbar({ demoMode }: { demoMode?: boolean }) {
                 onClick={() => setMobileOpen(false)}
                 className="block rounded-lg px-3 py-2 text-sm font-semibold text-ink-800 hover:bg-ink-100"
               >
-                Influencer Requests
+                Creator Requests
               </Link>
               <Link
                 href="/business/sales"

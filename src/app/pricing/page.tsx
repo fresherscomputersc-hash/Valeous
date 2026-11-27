@@ -21,7 +21,7 @@ export default function PricingPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <div className="surface-card space-y-4 border-brand-200 p-6 sm:p-8">
           <p className="text-xs font-extrabold tracking-wider text-brand-700 uppercase">
-            For Influencers &amp; Creators
+            For Creators
           </p>
           <p className="text-3xl font-black text-ink-950">₹0 — Forever Free</p>
           <p className="text-xs text-ink-600">

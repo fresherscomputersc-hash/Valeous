@@ -14,7 +14,7 @@ export function HeroCtaButtons() {
           href="/register?role=INFLUENCER"
           className="btn-primary rounded-xl px-5 py-3 text-sm"
         >
-          Join as Influencer
+          Join as Creator
         </Link>
         <Link
           href="/register?role=BUSINESS"

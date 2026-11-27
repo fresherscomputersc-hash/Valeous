@@ -38,7 +38,7 @@ export default function InfluencerDashboardPage() {
   if (!data) {
     return (
       <div className="py-12 text-center text-xs text-ink-500">
-        Loading Influencer Studio…
+        Loading Creator Studio…
       </div>
     );
   }

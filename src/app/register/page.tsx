@@ -1,9 +1,9 @@
 'use client';
 
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Briefcase, Sparkles, User } from 'lucide-react';
+import { Briefcase, ShieldCheck, Sparkles, User } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/components/ui/ToastProvider';
 
@@ -11,7 +11,11 @@ function RegisterFormInner() {
   const searchParams = useSearchParams();
   const roleParam = searchParams.get('role');
   const initialRole =
-    roleParam === 'BUSINESS' ? 'BUSINESS' : roleParam === 'CUSTOMER' ? 'CUSTOMER' : 'INFLUENCER';
+    roleParam === 'BUSINESS'
+      ? 'BUSINESS'
+      : roleParam === 'CUSTOMER'
+        ? 'CUSTOMER'
+        : 'INFLUENCER';
 
   const [role, setRole] = useState<'INFLUENCER' | 'BUSINESS' | 'CUSTOMER'>(initialRole);
   const [displayName, setDisplayName] = useState('');
@@ -19,6 +23,7 @@ function RegisterFormInner() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nicheOrCity, setNicheOrCity] = useState('');
+  const [agreeTerms, setAgreeTerms] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -26,8 +31,23 @@ function RegisterFormInner() {
   const { establishSession } = useAuth();
   const { notify } = useToast();
 
+  // Basic client-side password strength indicator (Blueprint Ch. 14)
+  const passwordStrength = useMemo(() => {
+    if (!password) return 0;
+    let score = 0;
+    if (password.length >= 8) score += 1;
+    if (password.length >= 12) score += 1;
+    if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score += 1;
+    if (/[0-9]/.test(password) || /[^A-Za-z0-9]/.test(password)) score += 1;
+    return score;
+  }, [password]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!agreeTerms) {
+      setError('Please accept the Terms of Service & Privacy Policy to register.');
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
@@ -67,7 +87,7 @@ function RegisterFormInner() {
           ? 'Business account created! List your first product campaign.'
           : role === 'CUSTOMER'
             ? 'Customer account created! Start discovering offers curated for you.'
-            : 'Influencer account created! Enroll in any product to get your promo code.',
+            : 'Creator account created! Enroll in any product to get your promo code.',
         'success'
       );
 
@@ -85,22 +105,22 @@ function RegisterFormInner() {
   }
 
   return (
-    <div className="mx-auto max-w-lg py-6">
+    <div className="mx-auto max-w-xl py-6">
       <div className="surface-card p-6 sm:p-8">
         <h1 className="text-2xl font-extrabold text-ink-950">Join VALUEOUS</h1>
         <p className="mt-1 text-xs text-ink-600">
-          Choose how you want to use the platform:
+          Choose your account type to access specialized tools and workflows:
         </p>
 
-        {/* Role Selector */}
+        {/* Accessible Role Selector with min 44px touch targets */}
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <button
             type="button"
             data-testid="role-select-customer"
             onClick={() => setRole('CUSTOMER')}
-            className={`rounded-2xl border-2 p-3.5 text-left transition ${
+            className={`min-h-[44px] rounded-2xl border-2 p-3.5 text-left transition ${
               role === 'CUSTOMER'
-                ? 'border-brand-600 bg-brand-50/70'
+                ? 'border-brand-600 bg-brand-50/70 shadow-sm'
                 : 'border-ink-200 bg-white hover:border-ink-300'
             }`}
           >
@@ -115,9 +135,9 @@ function RegisterFormInner() {
             type="button"
             data-testid="role-select-influencer"
             onClick={() => setRole('INFLUENCER')}
-            className={`rounded-2xl border-2 p-3.5 text-left transition ${
+            className={`min-h-[44px] rounded-2xl border-2 p-3.5 text-left transition ${
               role === 'INFLUENCER'
-                ? 'border-creator-600 bg-creator-50/70'
+                ? 'border-creator-600 bg-creator-50/70 shadow-sm'
                 : 'border-ink-200 bg-white hover:border-ink-300'
             }`}
           >
@@ -132,9 +152,9 @@ function RegisterFormInner() {
             type="button"
             data-testid="role-select-business"
             onClick={() => setRole('BUSINESS')}
-            className={`rounded-2xl border-2 p-3.5 text-left transition ${
+            className={`min-h-[44px] rounded-2xl border-2 p-3.5 text-left transition ${
               role === 'BUSINESS'
-                ? 'border-business-600 bg-business-50/70'
+                ? 'border-business-600 bg-business-50/70 shadow-sm'
                 : 'border-ink-200 bg-white hover:border-ink-300'
             }`}
           >
@@ -161,8 +181,8 @@ function RegisterFormInner() {
               {role === 'BUSINESS'
                 ? 'Brand / Business Name'
                 : role === 'CUSTOMER'
-                  ? 'Your Name'
-                  : 'Your Creator Name'}
+                  ? 'Your Full Name'
+                  : 'Your Creator / Channel Name'}
             </label>
             <input
               id="reg-name"
@@ -179,7 +199,7 @@ function RegisterFormInner() {
                     ? 'Priya Sharma'
                     : 'Rohan Verma'
               }
-              className="input-field"
+              className="input-field min-h-[44px]"
             />
           </div>
 
@@ -202,7 +222,7 @@ function RegisterFormInner() {
                   )
                 }
                 placeholder={role === 'BUSINESS' ? 'aura-skincare' : 'rohanvlogs'}
-                className="input-field"
+                className="input-field min-h-[44px]"
               />
             </div>
 
@@ -215,8 +235,8 @@ function RegisterFormInner() {
                 type="text"
                 value={nicheOrCity}
                 onChange={(e) => setNicheOrCity(e.target.value)}
-                placeholder={role === 'INFLUENCER' ? 'Tech & Gadgets' : 'Mumbai / Bengaluru'}
-                className="input-field"
+                placeholder={role === 'INFLUENCER' ? 'Tech & Gadgets' : 'Bhubaneswar / Mumbai'}
+                className="input-field min-h-[44px]"
               />
             </div>
           </div>
@@ -232,7 +252,7 @@ function RegisterFormInner() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="input-field"
+              className="input-field min-h-[44px]"
             />
           </div>
 
@@ -248,18 +268,83 @@ function RegisterFormInner() {
               maxLength={128}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="input-field"
+              className="input-field min-h-[44px]"
             />
+
+            {/* Password strength indicator */}
+            {password ? (
+              <div className="mt-2 space-y-1">
+                <div className="flex gap-1 h-1.5 w-full">
+                  <div
+                    className={`h-full flex-1 rounded-full transition ${
+                      passwordStrength >= 1 ? 'bg-amber-500' : 'bg-ink-200'
+                    }`}
+                  />
+                  <div
+                    className={`h-full flex-1 rounded-full transition ${
+                      passwordStrength >= 2 ? 'bg-amber-500' : 'bg-ink-200'
+                    }`}
+                  />
+                  <div
+                    className={`h-full flex-1 rounded-full transition ${
+                      passwordStrength >= 3 ? 'bg-emerald-500' : 'bg-ink-200'
+                    }`}
+                  />
+                  <div
+                    className={`h-full flex-1 rounded-full transition ${
+                      passwordStrength >= 4 ? 'bg-emerald-600' : 'bg-ink-200'
+                    }`}
+                  />
+                </div>
+                <p className="text-[11px] text-ink-500">
+                  {passwordStrength <= 2
+                    ? 'Weak password — use uppercase, lowercase and numbers.'
+                    : 'Strong cryptographic password.'}
+                </p>
+              </div>
+            ) : null}
           </div>
 
-          <button type="submit" disabled={loading} className="btn-primary w-full py-3">
-            {loading
-              ? 'Creating account…'
-              : role === 'BUSINESS'
-                ? 'Create Business Account'
-                : role === 'CUSTOMER'
-                  ? 'Create Customer Account'
-                  : 'Create Creator Account'}
+          {/* Terms and Privacy Checkbox */}
+          <div className="flex items-start gap-2 pt-1">
+            <input
+              id="reg-terms"
+              type="checkbox"
+              checked={agreeTerms}
+              onChange={(e) => setAgreeTerms(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
+            />
+            <label htmlFor="reg-terms" className="text-xs text-ink-700 leading-normal">
+              I agree to the{' '}
+              <Link href="/terms" target="_blank" className="font-semibold text-brand-700 hover:underline">
+                Terms of Service
+              </Link>{' '}
+              and acknowledge the{' '}
+              <Link href="/privacy" target="_blank" className="font-semibold text-brand-700 hover:underline">
+                Privacy Policy
+              </Link>.
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || !agreeTerms}
+            className="btn-primary min-h-[44px] w-full py-3"
+          >
+            {loading ? (
+              'Creating account…'
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck className="h-4 w-4" />
+                <span>
+                  {role === 'BUSINESS'
+                    ? 'Create Business Account'
+                    : role === 'CUSTOMER'
+                      ? 'Create Customer Account'
+                      : 'Create Creator Account'}
+                </span>
+              </span>
+            )}
           </button>
         </form>
 
@@ -276,7 +361,14 @@ function RegisterFormInner() {
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div className="py-12 text-center text-sm">Loading…</div>}>
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-xl py-12" aria-busy="true">
+          <div className="skeleton h-10 w-48 mb-6" />
+          <div className="skeleton h-96 rounded-2xl" />
+        </div>
+      }
+    >
       <RegisterFormInner />
     </Suspense>
   );

@@ -11,7 +11,7 @@ export default function TermsPage() {
         VALUEOUS Terms of Service
       </h1>
       <p>
-        <strong>1. Marketplace Role:</strong> VALUEOUS connects verified Businesses listing product commission offers with Influencers promoting those products via assigned promo codes and tracked short-links.
+        <strong>1. Marketplace Role:</strong> VALUEOUS connects verified Businesses listing product commission offers with Creators promoting those products via assigned promo codes and tracked short-links.
       </p>
       <p>
         <strong>2. Commission Calculation &amp; Return Holds:</strong> Commissions are stored in integer INR paise according to the active campaign terms at the time of purchase. Businesses may apply a 7-day return clearance window (`PENDING_CLEARANCE`) and reverse cancelled or returned buyer orders prior to payout settlement.

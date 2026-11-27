@@ -78,7 +78,7 @@ export function BusinessIntegrationsClient() {
 
   async function handleSendTestOrder() {
     if (!selectedCode) {
-      notify('Approve at least 1 influencer promo code first to run a live test.', 'error');
+      notify('Approve at least 1 creator promo code first to run a live test.', 'error');
       return;
     }
     setTesting(true);
@@ -138,7 +138,7 @@ await fetch('${endpointUrl}', {
           Automated Store Order Webhooks
         </h1>
         <p className="mt-1 text-xs text-ink-600">
-          Connect Shopify, WooCommerce, or your custom store checkout so every order using an influencer’s promo code records itself automatically—zero manual entry.
+          Connect Shopify, WooCommerce, or your custom store checkout so every order using a creator’s promo code records itself automatically—zero manual entry.
         </p>
       </div>
 

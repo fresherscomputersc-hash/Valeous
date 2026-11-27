@@ -71,11 +71,11 @@ export default async function HomeMarketplacePage({
             {
               icon: Briefcase,
               step: '1. Business Lists Product',
-              desc: 'Sets product price, buyer discount, and ₹ or % influencer payout.',
+              desc: 'Sets product price, buyer discount, and ₹ or % creator payout.',
             },
             {
               icon: CheckCircle2,
-              step: '2. Influencer Enrolls',
+              step: '2. Creator Enrolls',
               desc: 'Picks any product to promote and gets approved by the business.',
             },
             {

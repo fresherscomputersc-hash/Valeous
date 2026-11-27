@@ -316,7 +316,7 @@ export function BusinessSalesLoggerClient({
         s.source || 'MANUAL',
       ]),
     ];
-    downloadCsv(`promobridge-sales-${Date.now()}.csv`, rows);
+    downloadCsv(`valueous-sales-${Date.now()}.csv`, rows);
   }
 
   return (
@@ -430,7 +430,7 @@ export function BusinessSalesLoggerClient({
         <div className="mt-5 grid gap-4 sm:grid-cols-12">
           <div className="sm:col-span-3">
             <label htmlFor="sale-code" className="label-text">
-              Influencer Promo Code
+              Creator Promo Code
             </label>
             <input
               id="sale-code"
@@ -539,7 +539,7 @@ export function BusinessSalesLoggerClient({
             className="btn-primary"
           >
             <CheckCircle2 className="h-4 w-4" />
-            <span>{busy ? 'Recording…' : 'Record Sale & Credit Influencer'}</span>
+            <span>{busy ? 'Recording…' : 'Record Sale & Credit Creator'}</span>
           </button>
         </div>
 
@@ -572,7 +572,7 @@ export function BusinessSalesLoggerClient({
                 <p className="font-bold text-ink-950">{calcResult.productTitle}</p>
               </div>
               <div>
-                <p className="text-ink-500">Influencer</p>
+                <p className="text-ink-500">Creator</p>
                 <p className="font-bold text-ink-950">
                   {calcResult.influencerName} (@{calcResult.influencerHandle})
                 </p>
@@ -647,7 +647,7 @@ export function BusinessSalesLoggerClient({
                 <tr>
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Promo Code</th>
-                  <th className="px-4 py-3">Influencer</th>
+                  <th className="px-4 py-3">Creator</th>
                   <th className="px-4 py-3">Product</th>
                   <th className="px-4 py-3">Units / Sale</th>
                   <th className="px-4 py-3">Commission</th>
