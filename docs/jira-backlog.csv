@@ -1,5 +1,5 @@
 Ticket ID,Epic / Milestone,Sprint,Task Title,Assignee,Priority,Story Points,Status,Dependencies,Repo Path / Target,Acceptance Criteria
-VLS-101,M0-Repo & Governance,Sprint 1,Move repo to Owner GitHub org with MFA & branch protection,Biswas,P0,2,To Do,Owner org created,github.com Owner Org,Owner is admin; main branch protected with PR review required
+VLS-101,M0-Repo & Governance,Sprint 1,Move repo to Owner GitHub org with MFA & branch protection,Biswas,P0,2,Done,Owner org created,github.com Owner Org,Owner is admin; main branch protected with PR review required
 VLS-102,M0-DevOps & CI,Sprint 1,Create Docker Compose (PostgreSQL 17 + Redis) & GitHub Actions CI,Biswas,P0,5,Done,VLS-101,docker-compose.yml & .github/workflows/ci.yml,PRs run typecheck lint Vitest SAST and dep scan automatically
 VLS-103,M1-Database,Sprint 1,Migrate Drizzle schema from SQLite to PostgreSQL 17 + UUIDv7/bigint/timestamptz,Subham,P0,8,Done,VLS-102,src/server/db/schema.ts & drizzle.config.ts,db:migrate and db:seed pass cleanly on PostgreSQL 17
 VLS-104,M1-Database,Sprint 1,Add 5 reserved product-commerce tables behind product_commerce_enabled=false,Subham,P1,3,Done,VLS-103,src/server/db/schema.ts,Tables exist in PG migrations; no public API routes exposed
