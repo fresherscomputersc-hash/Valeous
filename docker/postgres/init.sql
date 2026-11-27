@@ -1,0 +1,3 @@
+-- Enable extensions required by VALUEOUS (VLS-TBP-2026-001)
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS citext;

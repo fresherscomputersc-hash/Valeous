@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Typecheck, Lint, Test, Build & Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      NODE_ENV: test
+      NEXT_TELEMETRY_DISABLED: "1"
+      APP_URL: http://localhost:3000
+      APP_BASE_URL: http://localhost:3000
+      ALLOWED_ORIGINS: http://localhost:3000
+      DATABASE_URL: postgresql://valueous:valueous_dev_password@localhost:5432/valueous
+      REDIS_URL: redis://localhost:6379
+      DATABASE_FILE: file:./storage/d2c_mvp_test.sqlite
+      TEST_DATABASE_FILE: file:./storage/d2c_mvp_test.sqlite
+      JWT_SECRET: ci-placeholder-jwt-secret-at-least-32-chars-000000
+      WEBHOOK_HMAC_SECRET: ci-placeholder-webhook-hmac-secret-at-least-32-chars
+      SESSION_SECRET: ci-placeholder-session-secret-at-least-32-chars-000
+      CLAIM_CODE_SECRET: ci-placeholder-claim-secret-at-least-32-chars-00000
+      CRON_SECRET: ci-placeholder-cron-secret-at-least-32-chars-000000
+      PAYMENT_PROVIDER: mock
+      PRODUCT_COMMERCE_ENABLED: "false"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Prepare test database
+        run: npm run db:migrate
+
+      - name: Run unit & integration tests
+        run: npm test
+
+      - name: Build Next.js application
+        run: npm run build
+
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
+
+  sast:
+    name: SAST (CodeQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"

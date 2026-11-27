@@ -1,0 +1,33 @@
+# VALUEOUS (.antigravityrules) — Drop into root of Valeous-main
+
+## 1. Project & Stack Identity
+- Project: VALUEOUS (`VLS-TBP-2026-001`), three-sided marketplace (Customers, Creators, Businesses, Internal Admins).
+- Stack: Next.js 15.5 (App Router), React 19, TypeScript 5.8 (strict), Tailwind CSS 3.4, Drizzle ORM + PostgreSQL 17 (`pgTable`), Redis 7 + BullMQ worker (`src/workers/`), Zod 4.6, Vitest + Testcontainers PG, Playwright.
+- NEVER use SQLite (`sqliteTable`, `better-sqlite3`) for new code. All new schema and queries target PostgreSQL 17.
+- NEVER rewrite to NestJS; extend the existing Next.js modular monolith in `src/server/`.
+
+## 2. Hard Financial & Booking Invariants (NEVER VIOLATE)
+- Money is ALWAYS stored as integer paise (`bigint`), NEVER floating-point numbers.
+- Timestamps are ALWAYS UTC (`timestamptz`) in the DB; convert to IST only for UI display and offer expiry checks.
+- Availability & Reservations: Enforce `CHECK(reserved + confirmed <= capacity)` at DB level and `SELECT ... FOR UPDATE` inside transactions. Temporary holds expire in 300 seconds (5 minutes).
+- Booking State Machine: Only allow the 12 closed states (`Draft`, `Held`, `Pending Payment`, `Pending Approval`, `Confirmed`, `Checked In`, `Completed`, `Closed`, `Cancelled`, `Refund Pending`, `Refunded`, `Disputed`). Log every transition to `booking_events`.
+- Payments: All payment calls go through `src/server/payments/provider.ts` (`PaymentProvider` interface). Browser redirects NEVER confirm a booking—only HMAC-verified webhooks + provider status checks confirm bookings.
+- Double-Entry Ledger: `ledger_transactions` and `ledger_entries` are strictly INSERT-ONLY (`SUM(Debits) == SUM(Credits)`). NEVER write `UPDATE` or `DELETE` queries on ledger tables.
+- AI Boundary: Booking, payment, and ledger modules must NEVER import AI code.
+
+## 3. UI/UX & Branding Rules (Arpita)
+- Use VALUEOUS Blueprint palette in `tailwind.config.ts`: Primary `#2B68C4`, Creator `#84BE82`, Business `#183056`. Remove all orange PromoBridge branding.
+- Use "Creator" everywhere in UI copy (never "Influencer").
+- Customer booking/detail screens MUST show price, inclusions, exclusions, provider info, and cancellation policy before checkout.
+- Creator content/recommendations MUST require `proof_type` (`Visited`, `Researched`, `Gifted`, `Paid`).
+- Every async page needs skeleton loaders, plain-language errors with `correlation_id` (no stack traces), and 44px minimum touch targets (WCAG 2.2 AA).
+
+## 4. Repo, Branching & Verification Rules
+- Never commit `.env`, API keys, or secrets.
+- Branch naming: `feat/vls-<ticket-id>-<short-slug>` (e.g., `feat/vls-103-pg-migration`).
+- Before opening a PR to `main`, run and pass:
+  1. `npm run typecheck`
+  2. `npm run lint`
+  3. `npm test`
+  4. `npm run build`
+- Subham (Tech Admin) reviews and merges all PRs touching `src/server/db/`, `src/server/payments/`, `booking`, or `ledger`.
