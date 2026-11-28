@@ -59,6 +59,15 @@ export default function BusinessLayout({
           <Link href="/business/products" className={subLinkClass('/business/products')}>
             My Products
           </Link>
+          <Link href="/business/kyc" className={subLinkClass('/business/kyc')}>
+            KYC Verification
+          </Link>
+          <Link href="/business/services" className={subLinkClass('/business/services')}>
+            Services
+          </Link>
+          <Link href="/business/availability" className={subLinkClass('/business/availability')}>
+            Availability
+          </Link>
           <Link
             href="/business/products/new"
             className="rounded-lg px-3 py-1.5 font-bold text-brand-700 hover:bg-white"
