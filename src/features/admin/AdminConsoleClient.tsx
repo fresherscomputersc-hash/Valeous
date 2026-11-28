@@ -81,7 +81,7 @@ export function AdminConsoleClient({
       notify(
         action === 'PAY'
           ? 'Payout marked PAID with UTR reference!'
-          : 'Payout rejected and returned to influencer balance.',
+          : 'Payout rejected and returned to creator balance.',
         'success'
       );
       refresh();
@@ -212,7 +212,7 @@ export function AdminConsoleClient({
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-extrabold text-ink-950">
-            Influencer Payout Requests ({filteredPayouts.length})
+            Creator Payout Requests ({filteredPayouts.length})
           </h2>
 
           <div className="flex items-center gap-2">
@@ -241,7 +241,7 @@ export function AdminConsoleClient({
           <table className="w-full text-left text-xs">
             <thead className="border-b border-ink-200 bg-ink-50/70 font-bold text-ink-600 uppercase">
               <tr>
-                <th className="px-4 py-3">Influencer</th>
+                <th className="px-4 py-3">Creator</th>
                 <th className="px-4 py-3">Amount</th>
                 <th className="px-4 py-3">Destination</th>
                 <th className="px-4 py-3">Status</th>

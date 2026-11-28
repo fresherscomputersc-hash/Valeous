@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_ENV: test
+  NEXT_TELEMETRY_DISABLED: "1"
+  APP_URL: http://localhost:3000
+  APP_BASE_URL: http://localhost:3000
+  ALLOWED_ORIGINS: http://localhost:3000
+  PRODUCT_COMMERCE_ENABLED: "false"
+  PAYMENT_PROVIDER: mock
+  DATABASE_URL: postgresql://valueous:valueous_dev_password@localhost:5432/valueous
+  REDIS_URL: redis://localhost:6379
+  JWT_SECRET: ci-test-jwt-secret-must-be-at-least-32-characters-long
+  SESSION_SECRET: ci-test-session-secret-must-be-at-least-32-characters-long
+  CLAIM_CODE_SECRET: ci-test-claim-code-secret-must-be-at-least-32-characters
+  WEBHOOK_HMAC_SECRET: ci-test-webhook-hmac-secret-must-be-at-least-32-chars
+  CRON_SECRET: ci-test-cron-secret-must-be-at-least-32-characters-long
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Run unit & Testcontainers PG17 integration tests
+        run: npm test
+
+  build-audit:
+    name: Build & Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Build Next.js application
+        run: npm run build
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
+
+  sast:
+    name: SAST
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"

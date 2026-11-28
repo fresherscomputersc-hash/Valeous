@@ -1,13 +1,17 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
+  boolean,
   check,
   index,
   integer,
-  sqliteTable,
+  pgTable,
   text,
+  timestamp,
   uniqueIndex,
-} from 'drizzle-orm/sqlite-core';
-import { randomUUID } from 'crypto';
+  uuid,
+} from 'drizzle-orm/pg-core';
+import { uuidv7 } from './uuid';
 
 export const userRoleEnum = ['INFLUENCER', 'BUSINESS', 'ADMIN', 'CUSTOMER'] as const;
 export type UserRole = (typeof userRoleEnum)[number];
@@ -26,39 +30,49 @@ export type BrandWalletTxType = (typeof brandWalletTxTypeEnum)[number];
 export const payoutStatusEnum = ['PENDING', 'PAID', 'REJECTED'] as const;
 export type PayoutStatus = (typeof payoutStatusEnum)[number];
 
-export const users = sqliteTable(
+const utcNow = () => timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow();
+const utcUpdated = () => timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow();
+
+export const users = pgTable(
   'users',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
     email: text('email').notNull(),
+    phone: text('phone'),
     passwordHash: text('password_hash').notNull(),
     displayName: text('display_name').notNull(),
     role: text('role').notNull(),
     avatarUrl: text('avatar_url'),
     status: text('status').notNull().default('ACTIVE'),
-    emailVerifiedAt: text('email_verified_at'),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().$default(() => new Date().toISOString()),
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true, mode: 'string' }),
+    phoneVerifiedAt: timestamp('phone_verified_at', { withTimezone: true, mode: 'string' }),
+    mfaEnabled: boolean('mfa_enabled').notNull().default(false),
+    totpSecretEncrypted: text('totp_secret_encrypted'),
+    failedLoginAttempts: integer('failed_login_attempts').notNull().default(0),
+    lockedUntil: timestamp('locked_until', { withTimezone: true, mode: 'string' }),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
   },
   (t) => [
     uniqueIndex('users_email_unique').on(t.email),
+    uniqueIndex('users_phone_unique').on(t.phone),
     index('users_role_idx').on(t.role),
   ]
 );
 
-export const sessions = sqliteTable(
+export const sessions = pgTable(
   'sessions',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    userId: text('user_id')
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     tokenHash: text('token_hash').notNull(),
-    expiresAt: text('expires_at').notNull(),
-    revokedAt: text('revoked_at'),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'string' }),
     ipAddress: text('ip_address'),
     userAgent: text('user_agent'),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
+    createdAt: utcNow(),
   },
   (t) => [
     uniqueIndex('sessions_token_hash_unique').on(t.tokenHash),
@@ -66,32 +80,32 @@ export const sessions = sqliteTable(
   ]
 );
 
-export const passwordResetTokens = sqliteTable(
+export const passwordResetTokens = pgTable(
   'password_reset_tokens',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    userId: text('user_id')
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     tokenHash: text('token_hash').notNull(),
-    expiresAt: text('expires_at').notNull(),
-    usedAt: text('used_at'),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true, mode: 'string' }),
+    createdAt: utcNow(),
   },
   (t) => [uniqueIndex('password_reset_tokens_hash_unique').on(t.tokenHash)]
 );
 
-export const emailVerificationTokens = sqliteTable(
+export const emailVerificationTokens = pgTable(
   'email_verification_tokens',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    userId: text('user_id')
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     tokenHash: text('token_hash').notNull(),
-    expiresAt: text('expires_at').notNull(),
-    usedAt: text('used_at'),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true, mode: 'string' }),
+    createdAt: utcNow(),
   },
   (t) => [
     uniqueIndex('email_verification_tokens_hash_unique').on(t.tokenHash),
@@ -99,38 +113,38 @@ export const emailVerificationTokens = sqliteTable(
   ]
 );
 
-export const rateLimitHits = sqliteTable(
+export const rateLimitHits = pgTable(
   'rate_limit_hits',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
     namespace: text('namespace').notNull(),
     key: text('key').notNull(),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
+    createdAt: utcNow(),
   },
   (t) => [index('rate_limit_hits_lookup_idx').on(t.namespace, t.key, t.createdAt)]
 );
 
-export const categories = sqliteTable(
+export const categories = pgTable(
   'categories',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
     name: text('name').notNull(),
     slug: text('slug').notNull(),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
+    createdAt: utcNow(),
   },
   (t) => [uniqueIndex('categories_slug_unique').on(t.slug)]
 );
 
-export const businessProfiles = sqliteTable(
+export const businessProfiles = pgTable(
   'business_profiles',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    userId: text('user_id')
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     brandName: text('brand_name').notNull(),
     slug: text('slug').notNull(),
-    categoryId: text('category_id').references(() => categories.id, {
+    categoryId: uuid('category_id').references(() => categories.id, {
       onDelete: 'set null',
     }),
     description: text('description').notNull(),
@@ -138,13 +152,13 @@ export const businessProfiles = sqliteTable(
     city: text('city').notNull().default('Bhubaneswar'),
     gstin: text('gstin'),
     logoUrl: text('logo_url'),
-    walletBalancePaise: integer('wallet_balance_paise').notNull().default(0),
-    totalDepositedPaise: integer('total_deposited_paise').notNull().default(0),
-    totalSpentPaise: integer('total_spent_paise').notNull().default(0),
+    walletBalancePaise: bigint('wallet_balance_paise', { mode: 'number' }).notNull().default(0),
+    totalDepositedPaise: bigint('total_deposited_paise', { mode: 'number' }).notNull().default(0),
+    totalSpentPaise: bigint('total_spent_paise', { mode: 'number' }).notNull().default(0),
     webhookKey: text('webhook_key').notNull(),
     webhookSecret: text('webhook_secret').notNull(),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().$default(() => new Date().toISOString()),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
   },
   (t) => [
     uniqueIndex('business_profiles_user_unique').on(t.userId),
@@ -157,31 +171,31 @@ export const businessProfiles = sqliteTable(
   ]
 );
 
-export const brandWalletTransactions = sqliteTable(
+export const brandWalletTransactions = pgTable(
   'brand_wallet_transactions',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    businessId: text('business_id')
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    businessId: uuid('business_id')
       .notNull()
       .references(() => businessProfiles.id, { onDelete: 'cascade' }),
     type: text('type').notNull(),
-    amountPaise: integer('amount_paise').notNull(),
-    balanceAfterPaise: integer('balance_after_paise').notNull(),
+    amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
+    balanceAfterPaise: bigint('balance_after_paise', { mode: 'number' }).notNull(),
     reference: text('reference'),
     description: text('description').notNull(),
-    createdByUserId: text('created_by_user_id').references(() => users.id, {
+    createdByUserId: uuid('created_by_user_id').references(() => users.id, {
       onDelete: 'set null',
     }),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
+    createdAt: utcNow(),
   },
   (t) => [index('brand_wallet_tx_business_idx').on(t.businessId, t.createdAt)]
 );
 
-export const influencerProfiles = sqliteTable(
+export const influencerProfiles = pgTable(
   'influencer_profiles',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    userId: text('user_id')
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     handle: text('handle').notNull(),
@@ -196,13 +210,13 @@ export const influencerProfiles = sqliteTable(
     bankIfsc: text('bank_ifsc'),
     panNumber: text('pan_number'),
     bankDetailsNote: text('bank_details_note'),
-    totalEarnedPaise: integer('total_earned_paise').notNull().default(0),
-    pendingClearancePaise: integer('pending_clearance_paise').notNull().default(0),
-    availableBalancePaise: integer('available_balance_paise').notNull().default(0),
-    pendingPayoutPaise: integer('pending_payout_paise').notNull().default(0),
-    totalPaidPaise: integer('total_paid_paise').notNull().default(0),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().$default(() => new Date().toISOString()),
+    totalEarnedPaise: bigint('total_earned_paise', { mode: 'number' }).notNull().default(0),
+    pendingClearancePaise: bigint('pending_clearance_paise', { mode: 'number' }).notNull().default(0),
+    availableBalancePaise: bigint('available_balance_paise', { mode: 'number' }).notNull().default(0),
+    pendingPayoutPaise: bigint('pending_payout_paise', { mode: 'number' }).notNull().default(0),
+    totalPaidPaise: bigint('total_paid_paise', { mode: 'number' }).notNull().default(0),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
   },
   (t) => [
     uniqueIndex('influencer_profiles_user_unique').on(t.userId),
@@ -214,33 +228,34 @@ export const influencerProfiles = sqliteTable(
   ]
 );
 
-// NEW: Customer Profile Table
-export const customerProfiles = sqliteTable(
+export const customerProfiles = pgTable(
   'customer_profiles',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    userId: text('user_id')
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     displayName: text('display_name').notNull(),
     city: text('city').notNull().default('Bhubaneswar'),
-    preferences: text('preferences').notNull().default('{}'), // JSON string for saved searches, interests, etc.
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().$default(() => new Date().toISOString()),
+    interests: text('interests')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    preferences: text('preferences').notNull().default('{}'),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
   },
-  (t) => [
-    uniqueIndex('customer_profiles_user_unique').on(t.userId),
-  ]
+  (t) => [uniqueIndex('customer_profiles_user_unique').on(t.userId)]
 );
 
-export const products = sqliteTable(
+export const products = pgTable(
   'products',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    businessId: text('business_id')
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    businessId: uuid('business_id')
       .notNull()
       .references(() => businessProfiles.id, { onDelete: 'cascade' }),
-    categoryId: text('category_id')
+    categoryId: uuid('category_id')
       .notNull()
       .references(() => categories.id, { onDelete: 'restrict' }),
     title: text('title').notNull(),
@@ -249,15 +264,15 @@ export const products = sqliteTable(
     imageUrl: text('image_url'),
     imageAlt: text('image_alt'),
     externalProductUrl: text('external_product_url'),
-    retailPricePaise: integer('retail_price_paise').notNull(),
+    retailPricePaise: bigint('retail_price_paise', { mode: 'number' }).notNull(),
     commissionType: text('commission_type').notNull(),
-    commissionFixedPaise: integer('commission_fixed_paise'),
+    commissionFixedPaise: bigint('commission_fixed_paise', { mode: 'number' }),
     commissionPercent: integer('commission_percent'),
     buyerDiscountPercent: integer('buyer_discount_percent').notNull().default(0),
     promoCodePrefix: text('promo_code_prefix'),
     status: text('status').notNull().default('ACTIVE'),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
-    updatedAt: text('updated_at').notNull().$default(() => new Date().toISOString()),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
   },
   (t) => [
     uniqueIndex('products_slug_unique').on(t.slug),
@@ -275,14 +290,14 @@ export const products = sqliteTable(
   ]
 );
 
-export const enrollments = sqliteTable(
+export const enrollments = pgTable(
   'enrollments',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    productId: text('product_id')
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    productId: uuid('product_id')
       .notNull()
       .references(() => products.id, { onDelete: 'cascade' }),
-    influencerId: text('influencer_id')
+    influencerId: uuid('influencer_id')
       .notNull()
       .references(() => influencerProfiles.id, { onDelete: 'cascade' }),
     pitchNote: text('pitch_note'),
@@ -292,11 +307,11 @@ export const enrollments = sqliteTable(
     clicksCount: integer('clicks_count').notNull().default(0),
     totalSalesCount: integer('total_sales_count').notNull().default(0),
     totalUnitsSold: integer('total_units_sold').notNull().default(0),
-    totalGrossSalesPaise: integer('total_gross_sales_paise').notNull().default(0),
-    totalCommissionPaise: integer('total_commission_paise').notNull().default(0),
-    appliedAt: text('applied_at').notNull().$default(() => new Date().toISOString()),
-    decidedAt: text('decided_at'),
-    updatedAt: text('updated_at').notNull().$default(() => new Date().toISOString()),
+    totalGrossSalesPaise: bigint('total_gross_sales_paise', { mode: 'number' }).notNull().default(0),
+    totalCommissionPaise: bigint('total_commission_paise', { mode: 'number' }).notNull().default(0),
+    appliedAt: timestamp('applied_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    decidedAt: timestamp('decided_at', { withTimezone: true, mode: 'string' }),
+    updatedAt: utcUpdated(),
   },
   (t) => [
     uniqueIndex('enrollments_product_influencer_unique').on(t.productId, t.influencerId),
@@ -306,23 +321,23 @@ export const enrollments = sqliteTable(
   ]
 );
 
-export const promoClicks = sqliteTable(
+export const promoClicks = pgTable(
   'promo_clicks',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    enrollmentId: text('enrollment_id')
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    enrollmentId: uuid('enrollment_id')
       .notNull()
       .references(() => enrollments.id, { onDelete: 'cascade' }),
-    productId: text('product_id')
+    productId: uuid('product_id')
       .notNull()
       .references(() => products.id, { onDelete: 'cascade' }),
-    influencerId: text('influencer_id')
+    influencerId: uuid('influencer_id')
       .notNull()
       .references(() => influencerProfiles.id, { onDelete: 'cascade' }),
     ipHash: text('ip_hash'),
     userAgent: text('user_agent'),
     referer: text('referer'),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
+    createdAt: utcNow(),
   },
   (t) => [
     index('promo_clicks_enrollment_idx').on(t.enrollmentId, t.createdAt),
@@ -330,39 +345,39 @@ export const promoClicks = sqliteTable(
   ]
 );
 
-export const promoSales = sqliteTable(
+export const promoSales = pgTable(
   'promo_sales',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    enrollmentId: text('enrollment_id')
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    enrollmentId: uuid('enrollment_id')
       .notNull()
       .references(() => enrollments.id, { onDelete: 'restrict' }),
-    productId: text('product_id')
+    productId: uuid('product_id')
       .notNull()
       .references(() => products.id, { onDelete: 'restrict' }),
-    businessId: text('business_id')
+    businessId: uuid('business_id')
       .notNull()
       .references(() => businessProfiles.id, { onDelete: 'restrict' }),
-    influencerId: text('influencer_id')
+    influencerId: uuid('influencer_id')
       .notNull()
       .references(() => influencerProfiles.id, { onDelete: 'restrict' }),
     promoCodeSnapshot: text('promo_code_snapshot').notNull(),
     quantity: integer('quantity').notNull().default(1),
-    grossAmountPaise: integer('gross_amount_paise').notNull(),
-    commissionAmountPaise: integer('commission_amount_paise').notNull(),
-    platformFeePaise: integer('platform_fee_paise').notNull().default(0),
+    grossAmountPaise: bigint('gross_amount_paise', { mode: 'number' }).notNull(),
+    commissionAmountPaise: bigint('commission_amount_paise', { mode: 'number' }).notNull(),
+    platformFeePaise: bigint('platform_fee_paise', { mode: 'number' }).notNull().default(0),
     status: text('status').notNull().default('CONFIRMED'),
-    clearsAt: text('clears_at'),
+    clearsAt: timestamp('clears_at', { withTimezone: true, mode: 'string' }),
     refundReason: text('refund_reason'),
-    refundedAt: text('refunded_at'),
+    refundedAt: timestamp('refunded_at', { withTimezone: true, mode: 'string' }),
     source: text('source').notNull().default('MANUAL'),
     orderReference: text('order_reference'),
     customerNote: text('customer_note'),
-    loggedByUserId: text('logged_by_user_id')
+    loggedByUserId: uuid('logged_by_user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
-    soldAt: text('sold_at').notNull().$default(() => new Date().toISOString()),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
+    soldAt: timestamp('sold_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    createdAt: utcNow(),
   },
   (t) => [
     uniqueIndex('promo_sales_business_order_ref_unique').on(t.businessId, t.orderReference),
@@ -377,23 +392,23 @@ export const promoSales = sqliteTable(
   ]
 );
 
-export const payoutRequests = sqliteTable(
+export const payoutRequests = pgTable(
   'payout_requests',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    influencerId: text('influencer_id')
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    influencerId: uuid('influencer_id')
       .notNull()
       .references(() => influencerProfiles.id, { onDelete: 'restrict' }),
-    amountPaise: integer('amount_paise').notNull(),
+    amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
     payoutMethodSnapshot: text('payout_method_snapshot').notNull(),
     status: text('status').notNull().default('PENDING'),
     paymentReference: text('payment_reference'),
     note: text('note'),
-    processedByUserId: text('processed_by_user_id').references(() => users.id, {
+    processedByUserId: uuid('processed_by_user_id').references(() => users.id, {
       onDelete: 'set null',
     }),
-    requestedAt: text('requested_at').notNull().$default(() => new Date().toISOString()),
-    processedAt: text('processed_at'),
+    requestedAt: timestamp('requested_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    processedAt: timestamp('processed_at', { withTimezone: true, mode: 'string' }),
   },
   (t) => [
     index('payout_requests_influencer_idx').on(t.influencerId, t.requestedAt),
@@ -402,44 +417,44 @@ export const payoutRequests = sqliteTable(
   ]
 );
 
-export const notifications = sqliteTable(
+export const notifications = pgTable(
   'notifications',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    userId: text('user_id')
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     type: text('type').notNull(),
     title: text('title').notNull(),
     body: text('body').notNull(),
     href: text('href').notNull().default('/'),
-    readAt: text('read_at'),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
+    readAt: timestamp('read_at', { withTimezone: true, mode: 'string' }),
+    createdAt: utcNow(),
   },
   (t) => [index('notifications_user_created_idx').on(t.userId, t.createdAt)]
 );
 
-export const mediaAssets = sqliteTable(
+export const mediaAssets = pgTable(
   'media_assets',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    ownerUserId: text('owner_user_id')
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    ownerUserId: uuid('owner_user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     storageKey: text('storage_key').notNull(),
     mimeType: text('mime_type').notNull(),
     sizeBytes: integer('size_bytes').notNull(),
     altText: text('alt_text'),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
+    createdAt: utcNow(),
   },
   (t) => [uniqueIndex('media_assets_key_unique').on(t.storageKey)]
 );
 
-export const auditLogs = sqliteTable(
+export const auditLogs = pgTable(
   'audit_logs',
   {
-    id: text('id').notNull().primaryKey().$default(() => randomUUID()),
-    actorUserId: text('actor_user_id').references(() => users.id, {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    actorUserId: uuid('actor_user_id').references(() => users.id, {
       onDelete: 'set null',
     }),
     action: text('action').notNull(),
@@ -447,7 +462,344 @@ export const auditLogs = sqliteTable(
     targetId: text('target_id').notNull(),
     reason: text('reason'),
     metadata: text('metadata').notNull().$default(() => '{}'),
-    createdAt: text('created_at').notNull().$default(() => new Date().toISOString()),
+    createdAt: utcNow(),
   },
   (t) => [index('audit_logs_created_idx').on(t.createdAt)]
+);
+
+// ============================================================================
+// VLS-105: Normalized Customer Need-to-Offer & Smart Value Passport Tables
+// ============================================================================
+
+export const needStatusEnum = ['OPEN', 'MATCHED', 'EXPIRED', 'CLOSED'] as const;
+export type NeedStatus = (typeof needStatusEnum)[number];
+export const offerClaimStateEnum = ['AVAILABLE', 'CLAIMED', 'REDEEMED', 'EXPIRED', 'REMOVED'] as const;
+export type OfferClaimState = (typeof offerClaimStateEnum)[number];
+
+export const needs = pgTable(
+  'needs',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    customerId: uuid('customer_id')
+      .notNull()
+      .references(() => customerProfiles.id, { onDelete: 'cascade' }),
+    productId: uuid('product_id').references(() => products.id, {
+      onDelete: 'set null',
+    }),
+    title: text('title').notNull().default('Customer Need'),
+    categorySlug: text('category_slug'),
+    city: text('city').notNull().default('Bhubaneswar'),
+    budgetMaxPaise: bigint('budget_max_paise', { mode: 'number' }),
+    notes: text('notes'),
+    status: text('status').notNull().default('OPEN'),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [
+    index('needs_customer_idx').on(t.customerId, t.createdAt),
+    index('needs_status_idx').on(t.status),
+  ]
+);
+
+export const needResponses = pgTable(
+  'need_responses',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    needId: uuid('need_id')
+      .notNull()
+      .references(() => needs.id, { onDelete: 'cascade' }),
+    responderType: text('responder_type').notNull(), // 'BUSINESS' | 'CREATOR'
+    responderId: uuid('responder_id').notNull(),
+    productId: uuid('product_id').references(() => products.id, {
+      onDelete: 'set null',
+    }),
+    message: text('message').notNull(),
+    offeredPricePaise: bigint('offered_price_paise', { mode: 'number' }),
+    status: text('status').notNull().default('SENT'),
+    createdAt: utcNow(),
+  },
+  (t) => [index('need_responses_need_idx').on(t.needId, t.createdAt)]
+);
+
+export const offerClaims = pgTable(
+  'offer_claims',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    customerId: uuid('customer_id')
+      .notNull()
+      .references(() => customerProfiles.id, { onDelete: 'cascade' }),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    enrollmentId: uuid('enrollment_id').references(() => enrollments.id, {
+      onDelete: 'set null',
+    }),
+    state: text('state').notNull().default('CLAIMED'),
+    claimedAt: timestamp('claimed_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [
+    uniqueIndex('offer_claims_customer_product_unique').on(t.customerId, t.productId),
+    index('offer_claims_customer_state_idx').on(t.customerId, t.state),
+  ]
+);
+
+export const redemptions = pgTable(
+  'redemptions',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    claimId: uuid('claim_id')
+      .notNull()
+      .references(() => offerClaims.id, { onDelete: 'cascade' }),
+    bookingRef: text('booking_ref'),
+    status: text('status').notNull().default('REDEEMED'),
+    redeemedAt: timestamp('redeemed_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('redemptions_claim_unique').on(t.claimId),
+    index('redemptions_redeemed_at_idx').on(t.redeemedAt),
+  ]
+);
+
+// ============================================================================
+// VLS-104: Reserved Product-Commerce Tables (behind PRODUCT_COMMERCE_ENABLED=false)
+// ============================================================================
+
+export const pcProducts = pgTable(
+  'pc_products',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    businessId: uuid('business_id')
+      .notNull()
+      .references(() => businessProfiles.id, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id').references(() => categories.id, {
+      onDelete: 'set null',
+    }),
+    title: text('title').notNull(),
+    slug: text('slug').notNull(),
+    description: text('description').notNull(),
+    basePricePaise: bigint('base_price_paise', { mode: 'number' }).notNull(),
+    status: text('status').notNull().default('DRAFT'),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [
+    uniqueIndex('pc_products_slug_unique').on(t.slug),
+    index('pc_products_business_idx').on(t.businessId),
+    check('pc_products_price_positive', sql`${t.basePricePaise} > 0`),
+  ]
+);
+
+export const pcProductVariants = pgTable(
+  'pc_product_variants',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => pcProducts.id, { onDelete: 'cascade' }),
+    sku: text('sku').notNull(),
+    attributesJson: text('attributes_json').notNull().default('{}'),
+    pricePaise: bigint('price_paise', { mode: 'number' }).notNull(),
+    status: text('status').notNull().default('ACTIVE'),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [
+    uniqueIndex('pc_product_variants_sku_unique').on(t.sku),
+    index('pc_product_variants_product_idx').on(t.productId),
+    check('pc_variants_price_positive', sql`${t.pricePaise} > 0`),
+  ]
+);
+
+export const pcInventoryItems = pgTable(
+  'pc_inventory_items',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    variantId: uuid('variant_id')
+      .notNull()
+      .references(() => pcProductVariants.id, { onDelete: 'cascade' }),
+    availableQty: integer('available_qty').notNull().default(0),
+    reservedQty: integer('reserved_qty').notNull().default(0),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [
+    uniqueIndex('pc_inventory_items_variant_unique').on(t.variantId),
+    check('pc_inventory_nonnegative', sql`${t.availableQty} >= 0 AND ${t.reservedQty} >= 0`),
+  ]
+);
+
+export const pcCarts = pgTable(
+  'pc_carts',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    itemsJson: text('items_json').notNull().default('[]'),
+    status: text('status').notNull().default('ACTIVE'),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [index('pc_carts_user_idx').on(t.userId, t.status)]
+);
+
+export const pcOrders = pgTable(
+  'pc_orders',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    orderNo: text('order_no').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    businessId: uuid('business_id')
+      .notNull()
+      .references(() => businessProfiles.id, { onDelete: 'restrict' }),
+    totalPaise: bigint('total_paise', { mode: 'number' }).notNull(),
+    state: text('state').notNull().default('PENDING'),
+    shippingJson: text('shipping_json').notNull().default('{}'),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [
+    uniqueIndex('pc_orders_order_no_unique').on(t.orderNo),
+    index('pc_orders_user_idx').on(t.userId, t.createdAt),
+    check('pc_orders_total_positive', sql`${t.totalPaise} > 0`),
+  ]
+);
+
+// ============================================================================
+// VLS-106: Phone OTP, TOTP MFA & Organisation/Branch RBAC Tables
+// ============================================================================
+
+export const orgRoleEnum = [
+  'ORG_OWNER',
+  'BRANCH_MANAGER',
+  'STAFF',
+  'FINANCE',
+  'READ_ONLY_ANALYST',
+] as const;
+export type OrgRole = (typeof orgRoleEnum)[number];
+
+export const otpChallenges = pgTable(
+  'otp_challenges',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    phone: text('phone').notNull(),
+    codeHash: text('code_hash').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    maxAttempts: integer('max_attempts').notNull().default(5),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+    verifiedAt: timestamp('verified_at', { withTimezone: true, mode: 'string' }),
+    createdAt: utcNow(),
+  },
+  (t) => [
+    index('otp_challenges_phone_idx').on(t.phone, t.createdAt),
+    index('otp_challenges_user_idx').on(t.userId),
+  ]
+);
+
+export const organisations = pgTable(
+  'organisations',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    legalName: text('legal_name').notNull(),
+    tradeName: text('trade_name').notNull(),
+    type: text('type').notNull().default('BUSINESS'),
+    status: text('status').notNull().default('ACTIVE'),
+    verificationStatus: text('verification_status').notNull().default('PENDING'),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [index('organisations_status_idx').on(t.status, t.verificationStatus)]
+);
+
+export const branches = pgTable(
+  'branches',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    organisationId: uuid('organisation_id')
+      .notNull()
+      .references(() => organisations.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    city: text('city').notNull().default('Bhubaneswar'),
+    timezone: text('timezone').notNull().default('Asia/Kolkata'),
+    status: text('status').notNull().default('ACTIVE'),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [index('branches_organisation_idx').on(t.organisationId)]
+);
+
+export const memberships = pgTable(
+  'memberships',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    organisationId: uuid('organisation_id')
+      .notNull()
+      .references(() => organisations.id, { onDelete: 'cascade' }),
+    branchId: uuid('branch_id').references(() => branches.id, {
+      onDelete: 'cascade',
+    }),
+    orgRole: text('org_role').notNull(),
+    status: text('status').notNull().default('ACTIVE'),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [
+    uniqueIndex('memberships_user_org_branch_unique').on(t.userId, t.organisationId, t.branchId),
+    index('memberships_user_idx').on(t.userId),
+    index('memberships_org_idx').on(t.organisationId),
+  ]
+);
+
+// ============================================================================
+// VLS-107: Payments & Webhook Idempotency Tables
+// ============================================================================
+
+export const payments = pgTable(
+  'payments',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    bookingId: uuid('booking_id').notNull(),
+    provider: text('provider').notNull(),
+    providerOrderId: text('provider_order_id').notNull(),
+    providerPaymentId: text('provider_payment_id'),
+    amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
+    currency: text('currency').notNull().default('INR'),
+    status: text('status').notNull().default('CREATED'),
+    method: text('method'),
+    idempotencyKey: text('idempotency_key').notNull(),
+    capturedAt: timestamp('captured_at', { withTimezone: true, mode: 'string' }),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [
+    uniqueIndex('payments_idempotency_key_unique').on(t.idempotencyKey),
+    uniqueIndex('payments_provider_payment_unique').on(t.provider, t.providerPaymentId),
+    index('payments_booking_idx').on(t.bookingId),
+    check('payments_amount_positive', sql`${t.amountPaise} > 0`),
+  ]
+);
+
+export const webhookEvents = pgTable(
+  'webhook_events',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    provider: text('provider').notNull(),
+    eventId: text('event_id').notNull(),
+    eventType: text('event_type').notNull(),
+    signatureValid: boolean('signature_valid').notNull(),
+    payloadRef: text('payload_ref').notNull(),
+    result: text('result').notNull(),
+    processedAt: timestamp('processed_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex('webhook_events_provider_event_unique').on(t.provider, t.eventId)]
 );

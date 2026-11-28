@@ -35,7 +35,7 @@ export default function InfluencerLayout({
   ) {
     return (
       <div className="py-12 text-center text-xs text-ink-500">
-        Loading Influencer Studio…
+        Loading Creator Studio…
       </div>
     );
   }
@@ -52,12 +52,12 @@ export default function InfluencerLayout({
       <div className="surface-card flex flex-wrap items-center justify-between gap-3 border-brand-200 bg-brand-50/50 px-5 py-3.5">
         <div>
           <p className="text-xs font-extrabold tracking-wider text-brand-900 uppercase">
-            Influencer Studio — @{actor.influencerProfile.handle}
+            Creator Studio — @{actor.influencerProfile.handle}
           </p>
         </div>
 
         <nav
-          aria-label="Influencer navigation"
+          aria-label="Creator navigation"
           className="flex flex-wrap gap-1.5 text-xs font-semibold"
         >
           <Link

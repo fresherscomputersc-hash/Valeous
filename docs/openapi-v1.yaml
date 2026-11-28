@@ -1,0 +1,280 @@
+openapi: 3.1.0
+info:
+  title: VALUEOUS Platform API
+  version: 1.0.0
+  description: >
+    OpenAPI v1 contract for VALUEOUS (VLS-TBP-2026-001) — three-sided discovery,
+    recommendations, offers, booking, and commerce platform.
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+tags:
+  - name: Health
+  - name: Auth
+  - name: Customer
+  - name: Business
+  - name: Bookings
+  - name: Payments
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: valueous_session
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+            correlation_id:
+              type: string
+    AuthRegisterRequest:
+      type: object
+      required: [email, password, displayName, role]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        displayName: { type: string }
+        role: { type: string, enum: [CUSTOMER, INFLUENCER, BUSINESS] }
+        city: { type: string }
+    AuthLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+    OtpRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone: { type: string, pattern: '^\\+[1-9]\\d{7,14}$', example: '+919876543210' }
+    OtpVerifyRequest:
+      type: object
+      required: [phone, code]
+      properties:
+        phone: { type: string, pattern: '^\\+[1-9]\\d{7,14}$' }
+        code: { type: string, pattern: '^\\d{6}$' }
+    TotpVerifyRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, pattern: '^\\d{6}$' }
+    CustomerNeedRequest:
+      type: object
+      required: [pitchNote, budgetRupees]
+      properties:
+        productId: { type: string, format: uuid }
+        categoryHint: { type: string }
+        pitchNote: { type: string, minLength: 5, maxLength: 600 }
+        budgetRupees: { type: number, minimum: 0 }
+    ReservationCreateRequest:
+      type: object
+      required: [item_type, item_id, slot_id, quantity]
+      properties:
+        item_type: { type: string, enum: [service, event, experience] }
+        item_id: { type: string, format: uuid }
+        slot_id: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1 }
+    ReservationResponse:
+      type: object
+      required: [reservation_id, status, expires_at, seconds_remaining]
+      properties:
+        reservation_id: { type: string, format: uuid }
+        status: { type: string, enum: [held, converted, expired] }
+        expires_at: { type: string, format: date-time }
+        seconds_remaining: { type: integer, example: 300 }
+    PaymentWebhookPayload:
+      type: object
+      required: [provider, eventId, type, paymentId, orderId, amountPaise, currency]
+      properties:
+        provider: { type: string, example: mock }
+        eventId: { type: string }
+        type: { type: string, enum: [payment.captured, payment.failed, refund.processed] }
+        paymentId: { type: string }
+        orderId: { type: string }
+        amountPaise: { type: integer, format: int64 }
+        currency: { type: string, enum: [INR] }
+        occurredAt: { type: string, format: date-time }
+
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Health check for PostgreSQL 17 connectivity
+      responses:
+        '200':
+          description: Database connected
+        '503':
+          description: Database unreachable
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register Customer, Creator, or Business account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuthRegisterRequest' }
+      responses:
+        '201': { description: Account created and session cookie set }
+        '409':
+          description: Email already taken
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in with email and password (5-attempt lockout enforced)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuthLoginRequest' }
+      responses:
+        '200': { description: Authenticated }
+        '401': { description: Invalid credentials }
+        '423': { description: Account temporarily locked }
+
+  /api/auth/otp/request:
+    post:
+      tags: [Auth]
+      summary: Request 6-digit phone OTP (10-minute expiry)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OtpRequest' }
+      responses:
+        '201': { description: OTP challenge created }
+
+  /api/auth/otp/verify:
+    post:
+      tags: [Auth]
+      summary: Verify phone OTP (max 5 attempts)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OtpVerifyRequest' }
+      responses:
+        '200': { description: Phone verified }
+        '429': { description: Max attempts exceeded }
+
+  /api/auth/mfa/enroll:
+    post:
+      tags: [Auth]
+      summary: Start TOTP MFA enrollment
+      security: [{ cookieAuth: [] }]
+      responses:
+        '201': { description: Returns TOTP secret and otpauth URI }
+
+  /api/auth/mfa/verify:
+    post:
+      tags: [Auth]
+      summary: Verify TOTP code and enable MFA
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TotpVerifyRequest' }
+      responses:
+        '200': { description: MFA enabled }
+        '401': { description: Invalid TOTP code }
+
+  /api/customer/request:
+    get:
+      tags: [Customer]
+      summary: List normalized customer needs
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200': { description: List of customer needs }
+    post:
+      tags: [Customer]
+      summary: Create a normalized customer need
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerNeedRequest' }
+      responses:
+        '201': { description: Need created }
+
+  /api/customer/passport:
+    get:
+      tags: [Customer]
+      summary: Get hydrated Smart Value Passport
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200': { description: Hydrated passport offers and interests }
+    post:
+      tags: [Customer]
+      summary: Claim/save an offer to Smart Value Passport
+      security: [{ cookieAuth: [] }]
+      responses:
+        '201': { description: Offer claimed }
+    delete:
+      tags: [Customer]
+      summary: Remove an offer from Smart Value Passport
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200': { description: Offer removed }
+
+  /api/v1/reservations:
+    post:
+      tags: [Bookings]
+      summary: Hold a slot for 300 seconds (5 minutes) atomically
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReservationCreateRequest' }
+      responses:
+        '201':
+          description: Slot held
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReservationResponse' }
+        '409':
+          description: SLOT_UNAVAILABLE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /api/webhooks/payments:
+    post:
+      tags: [Payments]
+      summary: Receive HMAC-signed payment provider webhook (idempotent by eventId)
+      parameters:
+        - name: X-Provider-Signature
+          in: header
+          required: true
+          schema: { type: string, example: 't=1763806500,v1=abcdef...' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PaymentWebhookPayload' }
+      responses:
+        '200': { description: Webhook accepted (or duplicate no-op) }
+        '401': { description: Invalid HMAC signature }

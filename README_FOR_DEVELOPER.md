@@ -1,6 +1,23 @@
 # 🚀 Quick Start: Building VALUEOUS Platform
 
-This repo is the **PromoBridge** codebase — a working Business ↔ Influencer marketplace that we're evolving into **VALUEOUS** (Customer, Creator, Business) per the PPT guide.
+This repo is the **VALUEOUS** (`VLS-TBP-2026-001`) modular monolith — evolving into the three-sided discovery, recommendation, offers, booking, and commerce platform (Customers, Creators, Businesses, Internal Admins).
+
+## ⚡ 3-Step Local Startup
+
+Copy `.env.example` to `.env` (if not already present), then run:
+
+```bash
+# 1. Start PostgreSQL 17 (with PostGIS) and Redis 7
+docker compose up -d
+
+# 2. Run database migrations and seed data
+npm run db:migrate && npm run db:seed
+
+# 3. Start the Next.js development server
+npm run dev
+```
+
+App will be available at `http://localhost:3000`.
 
 ---
 

@@ -1,10 +1,9 @@
-import path from 'node:path';
-import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
-import { createClient } from '@libsql/client';
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 import { getEnv } from '@/lib/env';
 import * as schema from './schema';
 
-export type Database = LibSQLDatabase<typeof schema>;
+export type Database = PostgresJsDatabase<typeof schema>;
 
 type TransactionCallback = Parameters<Database['transaction']>[0];
 
@@ -13,30 +12,33 @@ export type DbExecutor = Database | Parameters<TransactionCallback>[0];
 
 declare global {
   // eslint-disable-next-line no-var
-  var __d2cLibSql: {
-    db: Database;
-    client: ReturnType<typeof createClient>;
-  } | undefined;
+  var __valueousPg:
+    | {
+        db: Database;
+        client: postgres.Sql;
+      }
+    | undefined;
 }
 
 export function getDb(): Database {
-  if (!globalThis.__d2cLibSql) {
+  if (!globalThis.__valueousPg) {
     const env = getEnv();
-    const filePath = env.DATABASE_FILE.replace(/^file:/, '');
-    const absolutePath = path.resolve(filePath);
-    const url = `file:///${absolutePath.replace(/\\/g, '/')}`;
-    const client = createClient({ url });
-    client.execute('PRAGMA busy_timeout = 10000').catch(() => {});
-    globalThis.__d2cLibSql = { db: drizzle(client), client };
+    const client = postgres(env.DATABASE_URL, {
+      max: env.NODE_ENV === 'production' ? 10 : 5,
+      idle_timeout: 20,
+      connect_timeout: 10,
+    });
+    globalThis.__valueousPg = {
+      db: drizzle(client, { schema }),
+      client,
+    };
   }
-  return globalThis.__d2cLibSql.db;
+  return globalThis.__valueousPg.db;
 }
 
 export async function closeDbPool(): Promise<void> {
-  if (globalThis.__d2cLibSql) {
-    await globalThis.__d2cLibSql.client.close();
-    globalThis.__d2cLibSql = undefined;
+  if (globalThis.__valueousPg) {
+    await globalThis.__valueousPg.client.end({ timeout: 5 });
+    globalThis.__valueousPg = undefined;
   }
 }
-
-

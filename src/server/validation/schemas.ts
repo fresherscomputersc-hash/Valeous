@@ -304,3 +304,28 @@ export const customerInterestsUpdateSchema = z.object({
 export const customerSaveOfferSchema = z.object({
   productId: z.string().uuid(),
 });
+
+export const otpRequestSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+[1-9]\d{7,14}$/, 'Enter a valid E.164 phone number (e.g. +919876543210)'),
+});
+
+export const otpVerifySchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+[1-9]\d{7,14}$/, 'Enter a valid E.164 phone number'),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'OTP must be a 6-digit code'),
+});
+
+export const totpVerifySchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Authenticator code must be 6 digits'),
+});
