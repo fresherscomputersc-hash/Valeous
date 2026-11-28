@@ -16,8 +16,14 @@ services:
         value: Asia/Kolkata
       - key: NEXT_PUBLIC_DEMO_MODE
         value: "true"
-      - key: DATABASE_FILE
-        value: file:/app/storage/d2c_mvp.sqlite
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: PAYMENT_PROVIDER
+        value: mock
+      - key: PRODUCT_COMMERCE_ENABLED
+        value: "false"
       - key: STORAGE_PROVIDER
         value: local
       - key: EMAIL_PROVIDER
@@ -28,13 +34,19 @@ services:
         value: "false"
       - key: CSP_FRAME_ANCESTORS
         value: "'none'"
+      - key: APP_URL
+        sync: false
       - key: APP_BASE_URL
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false
+      - key: JWT_SECRET
+        generateValue: true
       - key: SESSION_SECRET
         generateValue: true
       - key: CLAIM_CODE_SECRET
+        generateValue: true
+      - key: WEBHOOK_HMAC_SECRET
         generateValue: true
       - key: CRON_SECRET
         generateValue: true
