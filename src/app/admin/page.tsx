@@ -57,7 +57,7 @@ export default function AdminPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
         {[
           { label: 'Businesses', value: String(c.businesses) },
-          { label: 'Influencers', value: String(c.influencers) },
+          { label: 'Creators', value: String(c.influencers) },
           {
             label: 'Active Campaigns / Codes',
             value: `${c.activeProducts} / ${c.activePromoCodes}`,
