@@ -55,9 +55,11 @@ export default function CustomerLayout({
         >
           {[
             { href: '/customer/dashboard', label: 'Overview' },
+            { href: '/customer/explore', label: 'Explore' },
             { href: '/customer/offers', label: 'Find Offers' },
             { href: '/customer/passport', label: 'Value Passport' },
             { href: '/customer/requests', label: 'My Requests' },
+            { href: '/customer/bookings', label: 'My Bookings' },
           ].map((item) => {
             const active = pathname === item.href;
             return (
