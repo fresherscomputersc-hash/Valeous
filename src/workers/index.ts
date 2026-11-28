@@ -16,13 +16,17 @@ export async function processValueousJob(job: Job<ValueousJobData>) {
         message: data.message,
         processedAt: new Date().toISOString(),
       };
-    case 'reservation-expiry':
+    case 'reservation-expiry': {
+      const { expireReservationHold } = await import('@/server/services/reservation.service');
+      const res = await expireReservationHold(data.reservationId);
       return {
         processed: true,
         kind: data.kind,
         reservationId: data.reservationId,
+        expired: res.expired,
         processedAt: new Date().toISOString(),
       };
+    }
     case 'webhook-retry':
       return {
         processed: true,

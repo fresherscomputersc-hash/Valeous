@@ -15,6 +15,13 @@
       "when": 1795716804881,
       "tag": "0001_busy_sir_ram",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795853522098,
+      "tag": "0002_gray_firelord",
+      "breakpoints": true
     }
   ]
 }

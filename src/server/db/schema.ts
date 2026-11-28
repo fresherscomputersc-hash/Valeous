@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   check,
+  doublePrecision,
   index,
   integer,
   pgTable,
@@ -725,6 +726,8 @@ export const branches = pgTable(
       .references(() => organisations.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     city: text('city').notNull().default('Bhubaneswar'),
+    lat: doublePrecision('lat'),
+    lng: doublePrecision('lng'),
     timezone: text('timezone').notNull().default('Asia/Kolkata'),
     status: text('status').notNull().default('ACTIVE'),
     createdAt: utcNow(),
@@ -802,4 +805,400 @@ export const webhookEvents = pgTable(
       .defaultNow(),
   },
   (t) => [uniqueIndex('webhook_events_provider_event_unique').on(t.provider, t.eventId)]
+);
+
+// ============================================================================
+// VLS-201..VLS-206: Sprint 2 Core Domain Tables (PG17)
+// ============================================================================
+
+export const bookingStateEnum = [
+  'Draft',
+  'Held',
+  'Pending Payment',
+  'Pending Approval',
+  'Confirmed',
+  'Checked In',
+  'Completed',
+  'Closed',
+  'Cancelled',
+  'Refund Pending',
+  'Refunded',
+  'Disputed',
+] as const;
+export type BookingState = (typeof bookingStateEnum)[number];
+
+export const verificationRecords = pgTable(
+  'verification_records',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    subjectType: text('subject_type').notNull(), // 'ORGANISATION' | 'CREATOR'
+    subjectId: uuid('subject_id').notNull(),
+    kind: text('kind').notNull(), // 'kyc' | 'creator' | 'follower'
+    status: text('status').notNull().default('PENDING'), // 'PENDING' | 'APPROVED' | 'REJECTED'
+    reviewerId: uuid('reviewer_id').references(() => users.id, { onDelete: 'set null' }),
+    evidenceRef: text('evidence_ref').notNull(),
+    decidedAt: timestamp('decided_at', { withTimezone: true, mode: 'string' }),
+    reason: text('reason'),
+    createdAt: utcNow(),
+  },
+  (t) => [
+    index('verification_records_subject_idx').on(t.subjectType, t.subjectId),
+    index('verification_records_status_idx').on(t.status),
+  ]
+);
+
+export const policies = pgTable(
+  'policies',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    organisationId: uuid('organisation_id')
+      .notNull()
+      .references(() => organisations.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull().default('cancel'), // 'cancel' | 'reschedule'
+    rulesJson: text('rules_json').notNull().default('{}'),
+    version: integer('version').notNull().default(1),
+    createdAt: utcNow(),
+  },
+  (t) => [index('policies_org_idx').on(t.organisationId)]
+);
+
+export const services = pgTable(
+  'services',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    organisationId: uuid('organisation_id')
+      .notNull()
+      .references(() => organisations.id, { onDelete: 'cascade' }),
+    branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'set null' }),
+    categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'set null' }),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    durationMin: integer('duration_min').notNull().default(60),
+    basePricePaise: bigint('base_price_paise', { mode: 'number' }).notNull(),
+    currency: text('currency').notNull().default('INR'),
+    inclusionsJson: text('inclusions_json').notNull().default('[]'),
+    exclusionsJson: text('exclusions_json').notNull().default('[]'),
+    policyId: uuid('policy_id').references(() => policies.id, { onDelete: 'set null' }),
+    status: text('status').notNull().default('ACTIVE'),
+    requiresApproval: boolean('requires_approval').notNull().default(false),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [
+    index('services_org_status_idx').on(t.organisationId, t.status),
+    check('services_price_positive', sql`${t.basePricePaise} > 0`),
+    check('services_duration_positive', sql`${t.durationMin} > 0`),
+  ]
+);
+
+export const events = pgTable(
+  'events',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    organisationId: uuid('organisation_id')
+      .notNull()
+      .references(() => organisations.id, { onDelete: 'cascade' }),
+    branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'set null' }),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    startsAt: timestamp('starts_at', { withTimezone: true, mode: 'string' }).notNull(),
+    endsAt: timestamp('ends_at', { withTimezone: true, mode: 'string' }).notNull(),
+    venue: text('venue').notNull(),
+    capacity: integer('capacity').notNull(),
+    basePricePaise: bigint('base_price_paise', { mode: 'number' }).notNull(),
+    status: text('status').notNull().default('ACTIVE'),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [
+    index('events_starts_at_idx').on(t.startsAt),
+    check('events_capacity_nonnegative', sql`${t.capacity} >= 0`),
+    check('events_price_positive', sql`${t.basePricePaise} > 0`),
+  ]
+);
+
+export const availability = pgTable(
+  'availability',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    itemType: text('item_type').notNull(), // 'service' | 'event'
+    itemId: uuid('item_id').notNull(),
+    startsAt: timestamp('starts_at', { withTimezone: true, mode: 'string' }).notNull(),
+    endsAt: timestamp('ends_at', { withTimezone: true, mode: 'string' }).notNull(),
+    capacity: integer('capacity').notNull(),
+    reserved: integer('reserved').notNull().default(0),
+    confirmed: integer('confirmed').notNull().default(0),
+    version: integer('version').notNull().default(1),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [
+    uniqueIndex('availability_item_starts_unique').on(t.itemType, t.itemId, t.startsAt),
+    index('availability_item_idx').on(t.itemType, t.itemId),
+    check(
+      'availability_capacity_invariant',
+      sql`${t.capacity} >= 0 AND ${t.reserved} >= 0 AND ${t.confirmed} >= 0 AND ${t.reserved} + ${t.confirmed} <= ${t.capacity}`
+    ),
+  ]
+);
+
+export const reservations = pgTable(
+  'reservations',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    availabilityId: uuid('availability_id')
+      .notNull()
+      .references(() => availability.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    quantity: integer('quantity').notNull().default(1),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+    status: text('status').notNull().default('held'), // 'held' | 'converted' | 'expired'
+    idempotencyKey: text('idempotency_key').notNull(),
+    createdAt: utcNow(),
+  },
+  (t) => [
+    uniqueIndex('reservations_idempotency_unique').on(t.idempotencyKey),
+    index('reservations_expires_idx').on(t.expiresAt, t.status),
+    check('reservations_quantity_positive', sql`${t.quantity} >= 1`),
+  ]
+);
+
+export const bookings = pgTable(
+  'bookings',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    bookingNo: text('booking_no').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    organisationId: uuid('organisation_id')
+      .notNull()
+      .references(() => organisations.id, { onDelete: 'restrict' }),
+    branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'set null' }),
+    parentBookingId: uuid('parent_booking_id'),
+    reservationId: uuid('reservation_id').references(() => reservations.id, {
+      onDelete: 'set null',
+    }),
+    availabilityId: uuid('availability_id').references(() => availability.id, {
+      onDelete: 'set null',
+    }),
+    state: text('state').notNull().default('Draft'),
+    quantity: integer('quantity').notNull().default(1),
+    totalPaise: bigint('total_paise', { mode: 'number' }).notNull().default(0),
+    priceBreakupJson: text('price_breakup_json').notNull().default('{}'),
+    policySnapshotJson: text('policy_snapshot_json').notNull().default('{}'),
+    attributionId: uuid('attribution_id'),
+    offerClaimId: uuid('offer_claim_id'),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [
+    uniqueIndex('bookings_booking_no_unique').on(t.bookingNo),
+    index('bookings_user_state_idx').on(t.userId, t.state),
+    index('bookings_org_idx').on(t.organisationId, t.createdAt),
+    index('bookings_parent_idx').on(t.parentBookingId),
+  ]
+);
+
+export const bookingEvents = pgTable(
+  'booking_events',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => bookings.id, { onDelete: 'cascade' }),
+    fromState: text('from_state'),
+    toState: text('to_state').notNull(),
+    actorUserId: uuid('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+    reason: text('reason'),
+    createdAt: utcNow(),
+  },
+  (t) => [index('booking_events_booking_idx').on(t.bookingId, t.createdAt)]
+);
+
+export const tickets = pgTable(
+  'tickets',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => bookings.id, { onDelete: 'cascade' }),
+    attendeeName: text('attendee_name').notNull(),
+    contactRef: text('contact_ref'),
+    status: text('status').notNull().default('issued'), // 'issued' | 'used' | 'void'
+    usedAt: timestamp('used_at', { withTimezone: true, mode: 'string' }),
+    usedByUserId: uuid('used_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: utcNow(),
+  },
+  (t) => [index('tickets_booking_idx').on(t.bookingId)]
+);
+
+export const qrTokens = pgTable(
+  'qr_tokens',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    ticketId: uuid('ticket_id')
+      .notNull()
+      .references(() => tickets.id, { onDelete: 'cascade' }),
+    nonce: text('nonce').notNull(),
+    keyId: text('key_id').notNull().default('v1'),
+    issuedAt: timestamp('issued_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true, mode: 'string' }),
+    consumedDeviceId: text('consumed_device_id'),
+  },
+  (t) => [
+    uniqueIndex('qr_tokens_nonce_unique').on(t.nonce),
+    index('qr_tokens_ticket_idx').on(t.ticketId),
+  ]
+);
+
+export const checkinScans = pgTable(
+  'checkin_scans',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    ticketId: uuid('ticket_id')
+      .notNull()
+      .references(() => tickets.id, { onDelete: 'cascade' }),
+    deviceId: text('device_id').notNull(),
+    scannedByUserId: uuid('scanned_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+    scannedAt: timestamp('scanned_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    offline: boolean('offline').notNull().default(false),
+    syncStatus: text('sync_status').notNull().default('SYNCED'),
+    conflictRef: text('conflict_ref'),
+  },
+  (t) => [index('checkin_scans_ticket_idx').on(t.ticketId)]
+);
+
+export const ledgerAccounts = pgTable(
+  'ledger_accounts',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    code: text('code').notNull(),
+    type: text('type').notNull(), // 'ASSET' | 'LIABILITY' | 'REVENUE' | 'EXPENSE' | 'CONTRA' | 'MEMO'
+    ownerType: text('owner_type').notNull(), // 'PLATFORM' | 'ORGANISATION' | 'CREATOR'
+    ownerId: text('owner_id').notNull().default('platform'),
+    createdAt: utcNow(),
+  },
+  (t) => [
+    uniqueIndex('ledger_accounts_code_owner_unique').on(t.code, t.ownerType, t.ownerId),
+  ]
+);
+
+export const ledgerTransactions = pgTable(
+  'ledger_transactions',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    bookingId: uuid('booking_id').references(() => bookings.id, { onDelete: 'restrict' }),
+    kind: text('kind').notNull(),
+    reversalOfId: uuid('reversal_of_id'),
+    balanced: boolean('balanced').notNull().default(true),
+    createdAt: utcNow(),
+  },
+  (t) => [index('ledger_transactions_booking_idx').on(t.bookingId)]
+);
+
+export const ledgerEntries = pgTable(
+  'ledger_entries',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    transactionId: uuid('transaction_id')
+      .notNull()
+      .references(() => ledgerTransactions.id, { onDelete: 'restrict' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => ledgerAccounts.id, { onDelete: 'restrict' }),
+    direction: text('direction').notNull(), // 'D' | 'C'
+    amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
+    currency: text('currency').notNull().default('INR'),
+    memo: text('memo'),
+    createdAt: utcNow(),
+  },
+  (t) => [
+    index('ledger_entries_tx_idx').on(t.transactionId),
+    index('ledger_entries_account_idx').on(t.accountId, t.createdAt),
+    check('ledger_entries_amount_positive', sql`${t.amountPaise} > 0`),
+    check('ledger_entries_direction_valid', sql`${t.direction} IN ('D', 'C')`),
+  ]
+);
+
+export const commissionRules = pgTable(
+  'commission_rules',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    scope: text('scope').notNull().default('PLATFORM'), // 'PLATFORM' | 'CATEGORY' | 'ORGANISATION' | 'CAMPAIGN'
+    scopeId: text('scope_id'),
+    rateBps: integer('rate_bps').notNull().default(1000), // 10% = 1000 bps
+    creatorShareBps: integer('creator_share_bps').notNull().default(4000), // 40% of commission = 4000 bps
+    priority: integer('priority').notNull().default(0),
+    validFrom: timestamp('valid_from', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    validTo: timestamp('valid_to', { withTimezone: true, mode: 'string' }),
+    createdAt: utcNow(),
+  },
+  (t) => [index('commission_rules_scope_idx').on(t.scope, t.priority)]
+);
+
+export const commissionRecords = pgTable(
+  'commission_records',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => bookings.id, { onDelete: 'restrict' }),
+    ruleId: uuid('rule_id').references(() => commissionRules.id, { onDelete: 'set null' }),
+    basePaise: bigint('base_paise', { mode: 'number' }).notNull(),
+    platformPaise: bigint('platform_paise', { mode: 'number' }).notNull(),
+    creatorPaise: bigint('creator_paise', { mode: 'number' }).notNull(),
+    status: text('status').notNull().default('PENDING'),
+    createdAt: utcNow(),
+  },
+  (t) => [uniqueIndex('commission_records_booking_unique').on(t.bookingId)]
+);
+
+export const reconciliationItems = pgTable(
+  'reconciliation_items',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    source: text('source').notNull(),
+    reference: text('reference').notNull(),
+    matchedEntryId: uuid('matched_entry_id').references(() => ledgerEntries.id, {
+      onDelete: 'set null',
+    }),
+    status: text('status').notNull().default('UNMATCHED'), // 'MATCHED' | 'MISSING' | 'EXTRA' | 'VARIANCE' | 'UNMATCHED' | 'RESOLVED'
+    variancePaise: bigint('variance_paise', { mode: 'number' }).notNull().default(0),
+    resolvedByUserId: uuid('resolved_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: utcNow(),
+  },
+  (t) => [index('reconciliation_items_status_idx').on(t.status)]
+);
+
+export const refunds = pgTable(
+  'refunds',
+  {
+    id: uuid('id').notNull().primaryKey().$defaultFn(uuidv7),
+    paymentId: uuid('payment_id').references(() => payments.id, { onDelete: 'restrict' }),
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => bookings.id, { onDelete: 'restrict' }),
+    amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
+    reason: text('reason').notNull(),
+    status: text('status').notNull().default('PENDING'), // 'PENDING' | 'APPROVED' | 'REFUNDED' | 'REJECTED'
+    providerRefundId: text('provider_refund_id'),
+    requestedByUserId: uuid('requested_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    approvedByUserId: uuid('approved_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: utcNow(),
+    updatedAt: utcUpdated(),
+  },
+  (t) => [
+    index('refunds_booking_idx').on(t.bookingId),
+    check('refunds_amount_positive', sql`${t.amountPaise} > 0`),
+  ]
 );
