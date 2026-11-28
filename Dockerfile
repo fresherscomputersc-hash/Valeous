@@ -20,7 +20,7 @@ ENV NEXT_PUBLIC_DEMO_MODE=$NEXT_PUBLIC_DEMO_MODE
 ENV NEXT_PUBLIC_DEFAULT_TIMEZONE=$NEXT_PUBLIC_DEFAULT_TIMEZONE
 ENV NEXT_PUBLIC_PILOT_LABEL=$NEXT_PUBLIC_PILOT_LABEL
 # Build-time placeholders only. Real values are injected at runtime.
-ENV DATABASE_FILE=file:./storage/build.sqlite
+ENV DATABASE_URL=postgresql://valueous:valueous@localhost:5432/valueous
 ENV SESSION_SECRET=build-time-placeholder-session-secret-0000000000
 ENV CLAIM_CODE_SECRET=build-time-placeholder-claim-secret-000000000000
 RUN npm run build
@@ -32,8 +32,6 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-# SQLite database and uploaded media live on a persistent volume.
-ENV DATABASE_FILE=file:/app/storage/d2c_mvp.sqlite
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates \
